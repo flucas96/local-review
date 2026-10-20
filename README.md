@@ -42,6 +42,8 @@ Code context is captured when you submit feedback. If an old location cannot be 
 
 This is an early preview. The **0.1.1 bundle builds successfully**. Type checking, automated tests, and a complete VS Code + authenticated Claude walkthrough are **pending verification**. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
 
+The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks missing Claude-to-thread navigation, unread replies, delivery readiness, and support for launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
+
 - One local workspace folder and one intended agent session.
 - The background watcher expires after 24 hours; reconnect or send Claude a prompt to rearm it.
 - Submitted comments persist. Unsent composer text is not durably autosaved by the extension.

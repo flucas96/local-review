@@ -20,6 +20,25 @@ Reviewed on 20 October 2026. **Fixed** means a source change has been made. **Ve
 
 Implementation and tests are in [src](../src) and [test](../test). Use the issue IDs above when recording follow-up work.
 
+## Daily-workflow usability audit
+
+Three independent read-only audits of preview `0.1.1` (`1765984`) identified the following open gaps. These are source findings; host behavior still needs the live walkthrough in [#1](https://github.com/flucas96/local-review/issues/1). Acceptance criteria and implementation options are tracked in [daily-workflow usability #4](https://github.com/flucas96/local-review/issues/4).
+
+| ID | Priority | Open gap | Recommended change |
+| --- | --- | --- | --- |
+| LR-012 | P1 | Claude cannot directly open the original review thread. | An authenticated `open_review(event_id)` MCP tool reusing existing diff/thread navigation. |
+| LR-013 | P1 | Replies update the UI but have no unread state or next-answer action. | Unread/ready count, optional actionable notification, and keyboard navigation without automatic focus changes. |
+| LR-014 | P1 | MCP heartbeat can show connected independently of a working wake hook. | Separate connection, watcher readiness, and explicit delivery acknowledgment; provide diagnostics and repair. |
+| LR-015 | P2 | Setup launches only an integrated terminal and cannot attach arbitrary running Claude processes. | Keep the launcher and offer a generated launch/resume command for an external local terminal. |
+| LR-016 | P2 | Session ownership is implicit, and resume chooses the latest conversation. | Explicit conversation selection, visible owner, and controlled takeover. |
+| LR-017 | P2 | Required Claude wake capability is not checked during setup. | Capability/version preflight with an actionable compatibility error. |
+| LR-018 | P2 | Review file selection is HEAD-relative and opens one file at a time. | A stable review baseline and next/previous-file navigation; committed work must remain reviewable. |
+| LR-019 | P2 | The flat queue hides filename/line in a tooltip and includes all resolved threads. | Visible locations, open/unread filters, and quick resolve/reopen actions. |
+| LR-020 | P2 | A slash prefix can override the clicked intent button without a preview. | Expose one clear active intent or reject conflicting prefix/button combinations. |
+| LR-021 | P2 | Add-comment shortcut and context action exclude original-side virtual documents. | Include the `local-review-base` scheme, then verify removed/original-line commenting in VS Code. |
+
+The recommended first pass is direct thread navigation, reply visibility, and truthful delivery readiness. Both integrated and separate local terminal apps should use the same review protocol. Claude's built-in `/ide` connection does not by itself install this extension's review hooks or MCP tools.
+
 ## Verification still required
 
 - Run strict TypeScript checking and the automated tests after human approval. These checks have not run; the successful bundle build does not establish type safety or runtime correctness.
@@ -44,6 +63,6 @@ Implementation and tests are in [src](../src) and [test](../test). Use the issue
 
 ## Release status
 
-Open work is tracked in GitHub: [validation and live integration #1](https://github.com/flucas96/local-review/issues/1), [Marketplace publisher and listing #2](https://github.com/flucas96/local-review/issues/2), and [large-backlog pagination #3](https://github.com/flucas96/local-review/issues/3).
+Open work is tracked in GitHub: [validation and live integration #1](https://github.com/flucas96/local-review/issues/1), [Marketplace publisher and listing #2](https://github.com/flucas96/local-review/issues/2), [large-backlog pagination #3](https://github.com/flucas96/local-review/issues/3), and [daily-workflow usability #4](https://github.com/flucas96/local-review/issues/4).
 
 The `0.1.1` bundle was built successfully with `npm run build`. Type checking, automated tests, and the live end-to-end walkthrough remain pending. Publisher registration and Marketplace publication are pending. Manual workflows are prepared but have not been run as part of this review. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.
