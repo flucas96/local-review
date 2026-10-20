@@ -30,9 +30,15 @@ The extension starts Claude in an integrated terminal with the review connection
 
 Run **Local Review: Änderungen reviewen** and select a changed file. Select a line or block, then use **Local Review: Kommentar hinzufügen**, the editor context menu, or **⌘⌥M / Ctrl+Alt+M**.
 
-Choose **Fragen `/a`**, **Umsetzen `/i`**, or **Zusammenfassen `/r`**. You can also prefix your text with the shortcut. `/r` on an existing thread can summarize it without additional text. A submitted comment is queued immediately.
+The composer opens beside the diff with the captured code visible. Choose **Fragen `/a`**, **Umsetzen `/i`**, or **Zusammenfassen `/r`**, or type the shortcut at the beginning of the text. The mode switches visibly before sending. Use the single send action or **⌘Enter / Ctrl+Enter**. `/r` on an existing thread can summarize it without additional text. A submitted comment is queued immediately; typing alone does not send anything.
+
+Replies remain native inline conversations. Use a thread's **Antworten** action to continue it in the composer. Closing the composer keeps its draft; **Local Review: Entwurf fortsetzen** reopens the latest saved draft. The shortcut and editor action also support the original side of Local Review diffs.
 
 Wait for explicit receipt and Claude's reply. **Bereit zur Prüfung** means the implementation is ready for your review. Use **Als erledigt markieren** when you accept it, or **Wieder öffnen** to continue a resolved conversation.
+
+## Share selected feedback with an open PR
+
+Install the GitHub CLI and sign in with `gh auth login` if you want PR handoffs. In the Review toolbar choose **An GitHub-PR übergeben**, select summaries and unresolved questions, review/edit the preview, and explicitly publish. This action does not acknowledge or resolve local feedback. See [PR handoff](PR-HANDOFF.md).
 
 ## If the connection needs attention
 

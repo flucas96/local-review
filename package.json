@@ -2,7 +2,7 @@
   "name": "local-review",
   "displayName": "Local Review",
   "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "local-review-dev",
   "private": true,
   "license": "UNLICENSED",
@@ -40,15 +40,11 @@
       { "command": "localReview.addComment", "title": "Kommentar hinzufügen", "category": "Local Review", "icon": "$(comment-add)" },
       { "command": "localReview.openChanges", "title": "Änderungen reviewen", "category": "Local Review", "icon": "$(git-compare)" },
       { "command": "localReview.revealThread", "title": "Zum Kommentar springen", "category": "Local Review" },
-      { "command": "localReview.submitAsk", "title": "Fragen /a", "category": "Local Review", "enablement": "!commentIsEmpty" },
-      { "command": "localReview.submitImplement", "title": "Umsetzen /i", "category": "Local Review", "enablement": "!commentIsEmpty" },
-      { "command": "localReview.submitSummary", "title": "Zusammenfassen /r", "category": "Local Review", "enablement": "!commentIsEmpty" },
-      { "command": "localReview.replyAsk", "title": "Fragen /a", "category": "Local Review", "enablement": "!commentIsEmpty" },
-      { "command": "localReview.replyImplement", "title": "Umsetzen /i", "category": "Local Review", "enablement": "!commentIsEmpty" },
-      { "command": "localReview.replySummary", "title": "Zusammenfassen /r", "category": "Local Review" },
+      { "command": "localReview.composeReply", "title": "Antworten", "category": "Local Review", "icon": "$(reply)" },
+      { "command": "localReview.resumeDraft", "title": "Entwurf fortsetzen", "category": "Local Review", "icon": "$(edit)" },
+      { "command": "localReview.exportToPr", "title": "An GitHub-PR übergeben", "category": "Local Review", "icon": "$(git-pull-request)" },
       { "command": "localReview.resolve", "title": "Als erledigt markieren", "category": "Local Review", "icon": "$(check)" },
-      { "command": "localReview.reopen", "title": "Wieder öffnen", "category": "Local Review", "icon": "$(debug-restart)" },
-      { "command": "localReview.cancelDraft", "title": "Verwerfen", "category": "Local Review", "icon": "$(close)" }
+      { "command": "localReview.reopen", "title": "Wieder öffnen", "category": "Local Review", "icon": "$(debug-restart)" }
     ],
     "views": { "scm": [{ "id": "localReview.threads", "name": "Review", "icon": "$(comment-discussion)" }] },
     "viewsWelcome": [{
@@ -56,40 +52,27 @@
       "contents": "Feedback direkt an Claude Code.\n[Mit Claude verbinden](command:localReview.startClaude)\n[Änderungen reviewen](command:localReview.openChanges)\nMarkiere Code und füge einen Kommentar hinzu. Abgeschickte Kommentare werden automatisch zugestellt."
     }],
     "menus": {
-      "editor/context": [{ "command": "localReview.addComment", "when": "resourceScheme == file && isWorkspaceTrusted", "group": "navigation@20" }],
+      "editor/context": [{ "command": "localReview.addComment", "when": "(resourceScheme == file || resourceScheme == local-review-base) && isWorkspaceTrusted", "group": "navigation@20" }],
+      "editor/title": [{ "command": "localReview.addComment", "when": "(resourceScheme == file || resourceScheme == local-review-base) && isWorkspaceTrusted", "group": "navigation@20" }],
       "scm/title": [{ "command": "localReview.openChanges", "when": "scmProvider == git", "group": "navigation@20" }],
       "view/title": [
         { "command": "localReview.startClaude", "when": "view == localReview.threads", "group": "navigation@1" },
-        { "command": "localReview.openChanges", "when": "view == localReview.threads", "group": "navigation@2" }
-      ],
-      "comments/commentThread/context": [
-        { "command": "localReview.cancelDraft", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@4" },
-        { "command": "localReview.submitAsk", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@1" },
-        { "command": "localReview.submitImplement", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@2" },
-        { "command": "localReview.submitSummary", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@3" },
-        { "command": "localReview.replyAsk", "when": "commentController == localReview && !commentThreadIsEmpty", "group": "inline@1" },
-        { "command": "localReview.replyImplement", "when": "commentController == localReview && !commentThreadIsEmpty", "group": "inline@2" },
-        { "command": "localReview.replySummary", "when": "commentController == localReview && !commentThreadIsEmpty", "group": "inline@3" }
+        { "command": "localReview.openChanges", "when": "view == localReview.threads", "group": "navigation@2" },
+        { "command": "localReview.exportToPr", "when": "view == localReview.threads", "group": "navigation@3" }
       ],
       "comments/commentThread/title": [
-        { "command": "localReview.cancelDraft", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@1" },
-        { "command": "localReview.resolve", "when": "commentController == localReview && commentThread == localReview.open", "group": "inline@1" },
+        { "command": "localReview.composeReply", "when": "commentController == localReview && commentThread == localReview.open", "group": "inline@1" },
+        { "command": "localReview.resolve", "when": "commentController == localReview && commentThread == localReview.open", "group": "inline@2" },
         { "command": "localReview.reopen", "when": "commentController == localReview && commentThread == localReview.resolved", "group": "inline@1" }
       ],
       "commandPalette": [
-        { "command": "localReview.submitAsk", "when": "false" },
-        { "command": "localReview.submitImplement", "when": "false" },
-        { "command": "localReview.submitSummary", "when": "false" },
-        { "command": "localReview.replyAsk", "when": "false" },
-        { "command": "localReview.replyImplement", "when": "false" },
-        { "command": "localReview.replySummary", "when": "false" },
+        { "command": "localReview.composeReply", "when": "false" },
         { "command": "localReview.resolve", "when": "false" },
         { "command": "localReview.reopen", "when": "false" },
-        { "command": "localReview.revealThread", "when": "false" },
-        { "command": "localReview.cancelDraft", "when": "false" }
+        { "command": "localReview.revealThread", "when": "false" }
       ]
     },
-    "keybindings": [{ "command": "localReview.addComment", "key": "ctrl+alt+m", "mac": "cmd+alt+m", "when": "editorTextFocus && resourceScheme == file" }],
+    "keybindings": [{ "command": "localReview.addComment", "key": "ctrl+alt+m", "mac": "cmd+alt+m", "when": "editorTextFocus && (resourceScheme == file || resourceScheme == local-review-base)" }],
     "configuration": {
       "title": "Local Review",
       "properties": {

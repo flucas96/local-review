@@ -13,7 +13,10 @@ Analyze the project structure before making changes. Keep the native VS Code rev
 ## Product invariants
 
 - Submitted comments are delivered automatically. Unsent keystrokes are not agent instructions.
+- Slash shortcuts switch the visible composer mode before sending; the selected mode must match the single send action.
 - `ask` and `summarize` request discussion without edits; `implement` requests scoped code changes.
+- `/r` summarizes a local conversation. Publishing to a GitHub PR is a separate preview-and-publish action.
+- PR handoff publishes the reviewed snapshot only and does not acknowledge delivery or resolve local threads.
 - Only the human can resolve a thread. An agent response is not human acceptance.
 - Preserve immutable event IDs and original code context across edits and restarts.
 - A transport connection is not a delivery acknowledgment.

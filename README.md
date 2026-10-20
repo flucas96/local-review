@@ -22,11 +22,19 @@ Open a diff, leave feedback, and keep reviewing. Each submitted comment reaches 
 
 Native VS Code comments keep the conversation next to the code. The Review sidebar shows what is waiting, received, in progress, or ready for you. Claude can reply and report progress; **you decide when a thread is resolved**.
 
+The compact composer opens beside the diff. Type `/a`, `/i`, or `/r` at the beginning to switch the visible mode immediately, or choose a mode button. One send action always shows the active intent. Drafts stay local until you send; closing the composer keeps them for **Local Review: Entwurf fortsetzen**. Submitted conversations and replies appear inline in the code.
+
+## Carry the conversation into your PR
+
+Use the **An GitHub-PR übergeben** action in the Review toolbar. Local Review finds the current branch's open PR and prepares an editable preview of available summaries and unresolved questions. Select the content, inspect the exact PR and text, then explicitly publish it. Later handoffs update your managed review comment instead of adding a duplicate.
+
+`/r` still summarizes a local conversation; it never publishes to GitHub. The first handoff uses a PR discussion comment with captured code locations, because local changes may not match the pushed PR's diff lines. Publishing requires the [GitHub CLI](https://cli.github.com/) installed and signed in. [PR handoff guide →](docs/PR-HANDOFF.md)
+
 ## Start in a minute
 
 Download a `.vsix` from [GitHub Releases](https://github.com/flucas96/local-review/releases), then choose **Extensions → … → Install from VSIX…** in VS Code. The extension is not published on the Marketplace yet.
 
-Open a trusted local Git repository and run **Local Review: Mit Claude verbinden**. Choose a new conversation or continue the last one. Open **Local Review: Änderungen reviewen**, select code, and add a comment with **⌘⌥M** on macOS or **Ctrl+Alt+M** on Linux. Use **Fragen**, **Umsetzen**, or **Zusammenfassen** to send it. The current interface uses German labels.
+Open a trusted local Git repository and run **Local Review: Mit Claude verbinden**. Choose a new conversation or continue the last one. Open **Local Review: Änderungen reviewen**, select code, and add feedback with **⌘⌥M** on macOS or **Ctrl+Alt+M** on Linux. Choose **Fragen**, **Umsetzen**, or **Zusammenfassen** in the composer, then send. To continue an inline conversation, use its **Antworten** action. The current interface uses German labels.
 
 Requires **VS Code 1.100+**, **Node.js 22+**, **Git**, and an installed, authenticated **Claude Code with `asyncRewake` support**. macOS is the primary target; Linux is unverified. Automatic connection is currently unavailable on Windows. [Installation and troubleshooting →](docs/INSTALL.md)
 
@@ -40,13 +48,13 @@ Code context is captured when you submit feedback. If an old location cannot be 
 
 ## Preview status
 
-This is an early preview. The **0.1.1 bundle builds successfully**. Type checking, automated tests, and a complete VS Code + authenticated Claude walkthrough are **pending verification**. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
+This is an early preview. The **0.2.0 bundle builds successfully**. Type checking, automated tests, and a complete VS Code + authenticated Claude walkthrough are **pending verification**. The new composer and GitHub handoff also need a native extension-host walkthrough. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
 
 The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks missing Claude-to-thread navigation, unread replies, delivery readiness, and support for launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
 
 - One local workspace folder and one intended agent session.
 - The background watcher expires after 24 hours; reconnect or send Claude a prompt to rearm it.
-- Submitted comments persist. Unsent composer text is not durably autosaved by the extension.
+- Submitted comments persist. Composer drafts are saved in workspace storage and can be resumed explicitly.
 - Delivery is at least once. Event IDs reduce duplicate responses; agent side effects cannot be guaranteed exactly once after a crash.
 
 ## Contribute

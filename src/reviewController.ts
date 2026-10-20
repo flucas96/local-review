@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import { capturedCodeContext, hashDocumentText, locateCodeAnchor, type AnchorLocation } from './anchors.js';
+import { createComposer } from './composer.js';
 import type { CodeAnchor, ReviewIntent, ReviewMessage, ReviewStore, ReviewThread } from './contracts';
 import { getHeadRevision, isWorkspaceRelativePath, listChangedFiles, readGitBase } from './git';
 
@@ -105,18 +106,6 @@ function lineRange(document: vscode.TextDocument, range: vscode.Range): vscode.R
   return new vscode.Range(valid.start.line, 0, lastLine, document.lineAt(lastLine).text.length);
 }
 
-/** Preserve supported slash shortcuts without leaking them into the feedback text. */
-function parseIntent(text: string, fallback: ReviewIntent): { readonly text: string; readonly intent: ReviewIntent } {
-  const trimmed = text.trim();
-  const match = /^\/(a|i|r)(?:\s+|$)/u.exec(trimmed);
-  const shortcuts: Record<string, ReviewIntent> = { a: 'ask', i: 'implement', r: 'summarize' };
-  const shortcut = match?.[1];
-  return {
-    text: match === null ? trimmed : trimmed.slice(match[0].length).trim(),
-    intent: shortcut === undefined ? fallback : shortcuts[shortcut] ?? fallback,
-  };
-}
-
 /** Render untrusted review text without allowing executable Markdown links. */
 function nativeComment(message: ReviewMessage): vscode.Comment {
   return {
@@ -202,6 +191,28 @@ export async function createReviewController(
   let syncPending = Promise.resolve();
   let reviewColumn: vscode.ViewColumn | undefined;
   let contextColumn: vscode.ViewColumn | undefined;
+  const composer = createComposer(context, async (submission) => {
+    const existing = store.threads.find((thread) => thread.id === submission.threadId);
+    if (submission.threadId !== undefined && existing === undefined) {
+      throw new Error('Diese Unterhaltung wurde nicht gefunden. Dein Entwurf bleibt gespeichert.');
+    }
+    if (existing?.resolved === true) {
+      throw new Error('Öffne diese Unterhaltung wieder, bevor du weiteres Feedback sendest.');
+    }
+    const anchor = existing?.anchor ?? submission.anchor;
+    if (anchor === undefined) {
+      throw new Error('Der gespeicherte Codekontext fehlt. Wähle den Code erneut aus.');
+    }
+    const text = submission.text.trim()
+      || (submission.intent === 'summarize' && existing !== undefined
+        ? 'Fasse diese Unterhaltung und ihren aktuellen Stand zusammen.' : '');
+    if (text.length === 0) throw new Error('Schreibe dein Feedback, bevor du es sendest.');
+    const thread = await store.submit(anchor, text, submission.intent, submission.threadId);
+    scheduleSync();
+    await syncPending;
+    await reveal(thread.id).catch(reportError);
+  });
+  disposables.push(composer);
 
   /** Surface failures without discarding the user's existing review text. */
   function reportError(error: unknown): void {
@@ -239,7 +250,7 @@ export async function createReviewController(
     native.comments = thread.messages.map(nativeComment);
     native.contextValue = thread.resolved ? 'localReview.resolved' : 'localReview.open';
     native.state = thread.resolved ? vscode.CommentThreadState.Resolved : vscode.CommentThreadState.Unresolved;
-    native.canReply = !thread.resolved;
+    native.canReply = false;
     const contextLabel = native.uri.scheme === contextScheme ? ' · Gespeicherter Kontext' : thread.outdated ? ' · Kontext geändert' : '';
     native.label = `${intentLabels[thread.intent]} · ${thread.resolved ? 'Erledigt' : statusLabels[thread.status]}${contextLabel}`;
   }
@@ -326,35 +337,29 @@ export async function createReviewController(
   }
 
   /** Capture an immutable code snapshot rather than trusting mutable line numbers. */
-  async function captureAnchor(native: vscode.CommentThread): Promise<{ readonly anchor: CodeAnchor; readonly document: vscode.TextDocument; readonly documentVersion: number }> {
-    const relativePath = workspacePath(native.uri, store.workspaceRoot);
+  async function captureAnchor(uri: vscode.Uri, selection: vscode.Range): Promise<CodeAnchor> {
+    const relativePath = workspacePath(uri, store.workspaceRoot);
     if (relativePath === undefined) {
       throw new Error('Wähle eine Datei in diesem Arbeitsbereich, um Feedback hinzuzufügen.');
     }
-    const document = await vscode.workspace.openTextDocument(native.uri);
-    const range = lineRange(document, native.range ?? new vscode.Range(0, 0, 0, 0));
-    native.range = range;
-    const reference = baseReference(native.uri);
-    const documentVersion = document.version;
+    const document = await vscode.workspace.openTextDocument(uri);
+    const range = lineRange(document, selection);
+    const reference = baseReference(uri);
     const selectedText = document.getText(range);
     const contextBefore = document.getText(new vscode.Range(Math.max(0, range.start.line - 3), 0, range.start.line, 0));
     const contextAfter = range.end.line + 1 >= document.lineCount ? '' : document.getText(new vscode.Range(range.end.line + 1, 0, Math.min(document.lineCount - 1, range.end.line + 3), Number.MAX_SAFE_INTEGER));
     const hash = documentHash(document);
     const revision = reference?.revision ?? await getHeadRevision(store.workspaceRoot) ?? 'unborn';
     return {
-      document,
-      documentVersion,
-      anchor: {
-        path: relativePath,
-        startLine: range.start.line + 1,
-        endLine: range.end.line + 1,
-        selectedText,
-        contextBefore,
-        contextAfter,
-        documentHash: hash,
-        side: reference !== undefined && !reference.emptyWorking ? 'original' : 'working',
-        baseRevision: revision,
-      },
+      path: relativePath,
+      startLine: range.start.line + 1,
+      endLine: range.end.line + 1,
+      selectedText,
+      contextBefore,
+      contextAfter,
+      documentHash: hash,
+      side: reference !== undefined && !reference.emptyWorking ? 'original' : 'working',
+      baseRevision: revision,
     };
   }
 
@@ -372,42 +377,6 @@ export async function createReviewController(
       }
     }
     return undefined;
-  }
-
-  /** Submit native composer text with an explicit human-selected intent. */
-  async function submit(reply: vscode.CommentReply | undefined, fallback: ReviewIntent): Promise<void> {
-    if (reply === undefined) {
-      throw new Error('Öffne einen Review-Kommentar, um Feedback abzusenden.');
-    }
-    const parsed = parseIntent(reply.text, fallback);
-    const existingId = threadId(reply.thread);
-    const existing = store.threads.find((thread) => thread.id === existingId);
-    const text = parsed.text || (parsed.intent === 'summarize' && existing !== undefined ? 'Fasse diese Unterhaltung und ihren aktuellen Stand zusammen.' : '');
-    if (text.length === 0) {
-      throw new Error('Schreibe dein Feedback hinter das Kürzel.');
-    }
-    if (existing?.resolved === true) {
-      throw new Error('Öffne diese Unterhaltung wieder, bevor du eine weitere Anfrage sendest.');
-    }
-    const captured = existing === undefined ? await captureAnchor(reply.thread) : undefined;
-    const anchor = existing?.anchor ?? captured?.anchor;
-    if (anchor === undefined) {
-      throw new Error('Der Codekontext konnte nicht erfasst werden. Dein Kommentar wurde nicht abgesendet.');
-    }
-    const thread = await store.submit(anchor, text, parsed.intent, existingId);
-    if (captured !== undefined) {
-      const restored = bindings.get(thread.id);
-      if (restored !== undefined && restored.native !== reply.thread) {
-        restored.native.dispose();
-      }
-      bindThread(thread, reply.thread, captured.document);
-      if (captured.document.version !== captured.documentVersion) {
-        await store.setOutdated(thread.id, true);
-      }
-    }
-    updateNative(thread, reply.thread);
-    reply.thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
-    scheduleSync();
   }
 
   /** Find an existing comparison so navigation keeps the user's review editor group. */
@@ -531,12 +500,6 @@ export async function createReviewController(
       return capturedCodeContext(thread.anchor).text;
     },
   }));
-  controller.commentingRangeProvider = {
-    provideCommentingRanges: (document) => workspacePath(document.uri, store.workspaceRoot) === undefined
-      ? []
-      : [new vscode.Range(0, 0, document.lineCount - 1, 0)],
-  };
-
   const register = (id: string, callback: (argument: unknown) => Promise<void>): void => {
     disposables.push(vscode.commands.registerCommand(`localReview.${id}`, (argument: unknown) => callback(argument).catch(reportError)));
   };
@@ -547,39 +510,34 @@ export async function createReviewController(
       return;
     }
     const range = lineRange(editor.document, editor.selection);
-    const draft = controller.createCommentThread(editor.document.uri, range, []);
-    draft.contextValue = 'localReview.draft';
-    draft.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
-    draft.label = 'Neuer Review-Kommentar';
+    const anchor = await captureAnchor(editor.document.uri, range);
+    await composer.open({
+      id: `new:${hashDocumentText(JSON.stringify(anchor))}`,
+      title: 'Feedback schreiben',
+      path: anchor.path,
+      code: capturedCodeContext(anchor).text,
+      intent: 'ask',
+      anchor,
+    });
   });
-  register('cancelDraft', async (argument) => {
-    if (typeof argument !== 'object' || argument === null) {
-      return;
-    }
-    const draft = 'thread' in argument ? argument.thread : argument;
-    if (typeof draft === 'object' && draft !== null
-      && 'comments' in draft && Array.isArray(draft.comments) && draft.comments.length === 0
-      && 'uri' in draft && draft.uri instanceof vscode.Uri
-      && workspacePath(draft.uri, store.workspaceRoot) !== undefined
-      && 'dispose' in draft && typeof draft.dispose === 'function'
-      && threadId(draft) === undefined) {
-      draft.dispose();
-    }
+  register('resumeDraft', async () => composer.resume());
+  register('composeReply', async (argument) => {
+    const id = threadId(argument);
+    const thread = store.threads.find((candidate) => candidate.id === id);
+    if (thread === undefined) throw new Error('Öffne eine Review-Unterhaltung, um zu antworten.');
+    if (thread.resolved) throw new Error('Öffne diese Unterhaltung zuerst wieder.');
+    await composer.open({
+      id: `thread:${thread.id}`,
+      title: 'Im Review antworten',
+      path: thread.anchor.path,
+      code: capturedCodeContext(thread.anchor).text,
+      intent: thread.intent,
+      threadId: thread.id,
+      anchor: thread.anchor,
+    });
   });
   register('openChanges', openChanges);
   register('revealThread', reveal);
-  for (const [suffix, intent] of [['Ask', 'ask'], ['Implement', 'implement'], ['Summary', 'summarize']] as const) {
-    for (const prefix of ['submit', 'reply']) {
-      disposables.push(vscode.commands.registerCommand(`localReview.${prefix}${suffix}`, async (reply: vscode.CommentReply | undefined) => {
-        try {
-          await submit(reply, intent);
-        } catch (error: unknown) {
-          reportError(error);
-          throw error;
-        }
-      }));
-    }
-  }
   for (const [command, resolved] of [['resolve', true], ['reopen', false]] as const) {
     register(command, async (argument) => {
       const id = threadId(argument);

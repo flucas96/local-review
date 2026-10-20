@@ -34,15 +34,22 @@ Three independent read-only audits of preview `0.1.1` (`1765984`) identified the
 | LR-017 | P2 | Required Claude wake capability is not checked during setup. | Capability/version preflight with an actionable compatibility error. |
 | LR-018 | P2 | Review file selection is HEAD-relative and opens one file at a time. | A stable review baseline and next/previous-file navigation; committed work must remain reviewable. |
 | LR-019 | P2 | The flat queue hides filename/line in a tooltip and includes all resolved threads. | Visible locations, open/unread filters, and quick resolve/reopen actions. |
-| LR-020 | P2 | A slash prefix can override the clicked intent button without a preview. | Expose one clear active intent or reject conflicting prefix/button combinations. |
-| LR-021 | P2 | Add-comment shortcut and context action exclude original-side virtual documents. | Include the `local-review-base` scheme, then verify removed/original-line commenting in VS Code. |
+| LR-020 | P2 | A slash prefix can override the clicked intent button without a preview. | Source fixed in 0.2.0: controlled composer previews live mode and uses one send action; native walkthrough pending. |
+| LR-021 | P2 | Add-comment shortcut and context action exclude original-side virtual documents. | Source fixed in 0.2.0: include `local-review-base`; removed/original-line walkthrough pending. |
 
 The recommended first pass is direct thread navigation, reply visibility, and truthful delivery readiness. Both integrated and separate local terminal apps should use the same review protocol. Claude's built-in `/ide` connection does not by itself install this extension's review hooks or MCP tools.
+
+## Live modes and PR handoff
+
+Preview 0.2.0 adds a controlled composer beside the diff because stable native comments expose text only when a comment is submitted. Typing an exact `/a`, `/i`, or `/r` previews the mode immediately; whitespace commits the shortcut. `/api` and `/index` remain ordinary text. Mode buttons explicitly override a pending prefix. Closing the composer keeps its local draft; submitted conversations remain native inline threads. These source changes and tests are not evidence of a completed native walkthrough.
+
+The separate PR action selects conversation summaries and unresolved questions, prepares an editable snapshot, and publishes one managed user-owned PR discussion comment. Summaries from resolved conversations are available only through explicit selection and are not preselected. It does not fabricate summaries, map unpushed lines to the PR diff, or resolve local threads. Managed markers support retry recovery and updates, but concurrent clients can still race; duplicate managed comments require manual attention. Validation and the updated demo are tracked in [feature issue #5](https://github.com/flucas96/local-review/issues/5).
 
 ## Verification still required
 
 - Run strict TypeScript checking and the automated tests after human approval. These checks have not run; the successful bundle build does not establish type safety or runtime correctness.
-- Install the resulting VSIX in a real VS Code extension host. Exercise comment creation, all three actions, empty-thread summary behavior, reply, resolve, reopen, and sidebar navigation.
+- Install the resulting VSIX in a real VS Code extension host. Exercise live shortcut/mode switching, `/index` text, local draft recovery, failed submission, all three actions, empty-thread summary, reply, resolve, reopen, original-side commenting and sidebar navigation.
+- Exercise PR handoff with no PR, missing CLI/authentication, selected summaries/questions, stale summaries, unpushed code, editable preview, successful publication, managed updates, changed destination/account, retry after uncertain publication and duplicate managed comments. Confirm publication does not change local delivery or resolution.
 - Connect an authenticated Claude terminal. Confirm idle wake-up, a second comment during ongoing work, explicit acknowledgment, progress, and a reply in the correct thread.
 - Reload the extension, move code, rename and delete files, and confirm safe thread recovery. Verify that a stalled or exited session can reconnect.
 - Exercise Linux before claiming support. Windows connection requires implementation and a dedicated walkthrough.
@@ -56,13 +63,13 @@ The recommended first pass is direct thread navigation, reply visibility, and tr
 | Idle watcher | 24-hour timeout. Reconnect or send Claude a prompt afterward. |
 | Agent context | Up to 20 recent conversation messages and 100,000 quoted characters. Individual review fields are bounded at 200,000 characters; replies at 20,000. |
 | Large backlog | Aggregate transport responses still have a 10,000,000-character ceiling and no pagination. A sufficiently large open queue can exceed it. |
-| Drafts | Submitted threads persist; unsent native composer text is not durably autosaved. |
+| Drafts | Submitted threads and controlled-composer drafts persist in workspace storage. If draft cleanup fails after a successful send, a stale draft can remain after restart; it is never automatically replayed. |
 | Delivery | At least once. Acknowledgment and reply IDs reduce duplicates; arbitrary edits are not exactly-once operations. |
 | Permissions | Ask and summarize are agent instructions. They do not create a separate filesystem permission boundary. |
 | Demo | Staged interface and simulated responses, not live integration evidence. |
 
 ## Release status
 
-Open work is tracked in GitHub: [validation and live integration #1](https://github.com/flucas96/local-review/issues/1), [Marketplace publisher and listing #2](https://github.com/flucas96/local-review/issues/2), [large-backlog pagination #3](https://github.com/flucas96/local-review/issues/3), and [daily-workflow usability #4](https://github.com/flucas96/local-review/issues/4).
+Open work is tracked in GitHub: [validation and live integration #1](https://github.com/flucas96/local-review/issues/1), [Marketplace publisher and listing #2](https://github.com/flucas96/local-review/issues/2), [large-backlog pagination #3](https://github.com/flucas96/local-review/issues/3), [daily-workflow usability #4](https://github.com/flucas96/local-review/issues/4), and [live modes, PR handoff and demo #5](https://github.com/flucas96/local-review/issues/5).
 
-The `0.1.1` bundle was built successfully with `npm run build`. Type checking, automated tests, and the live end-to-end walkthrough remain pending. Publisher registration and Marketplace publication are pending. Manual workflows are prepared but have not been run as part of this review. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.
+The `0.2.0` bundle was built successfully with `npm run build`. Type checking, automated tests, and the live end-to-end walkthrough remain pending. Publisher registration and Marketplace publication are pending. Manual workflows are prepared but have not been run as part of this review. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.
