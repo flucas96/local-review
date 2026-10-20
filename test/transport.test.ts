@@ -167,7 +167,8 @@ test('delivers queued feedback through hook exit 2 without acknowledging it befo
   await store.updateFromAgent({ eventId: thread.latestEventId, status: 'answered', text: 'Der Wert wurde bereits berechnet.' });
   const answered = await pendingReviews(store, bridge);
   assert.deepEqual(answered.events, []);
-  assert.equal(answered.threads[0]?.messages.at(-1)?.text, 'Der Wert wurde bereits berechnet.');
+  assert.deepEqual(answered.threads, []);
+  assert.equal(store.threads[0]?.messages.at(-1)?.text, 'Der Wert wurde bereits berechnet.');
 });
 
 test('recovers acknowledged but unfinished feedback when a Claude session starts', { timeout: 15_000 }, async (t) => {

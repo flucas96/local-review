@@ -45,10 +45,20 @@ Preview 0.2.0 adds a controlled composer beside the diff because stable native c
 
 The separate PR action selects conversation summaries and unresolved questions, prepares an editable snapshot, and publishes one managed user-owned PR discussion comment. Summaries from resolved conversations are available only through explicit selection and are not preselected. It does not fabricate summaries, map unpushed lines to the PR diff, or resolve local threads. Managed markers support retry recovery and updates, but concurrent clients can still race; duplicate managed comments require manual attention. Validation and the updated demo are tracked in [feature issue #5](https://github.com/flucas96/local-review/issues/5).
 
+## 0.3.0 usability and verification
+
+The user selected native GitHub-style inline input as the default, accepting mode interpretation at send time. The gutter provider is restored, inline replies are enabled, and one **Senden** action parses `/a`, `/i`, `/r`. The smaller side composer remains available as an explicit alternative, with live mode switching, local draft storage, selection following and a persistent accepted-range decoration. Written drafts and replies do not silently retarget.
+
+The side composer now shows the exact selected lines; surrounding context is separate and collapsed. Native replies use VS Code's Markdown renderer. Inspection of the playground's existing reply metadata confirmed real newlines but no fenced code blocks. Shared agent instructions and tool metadata now require fenced, language-labeled code. Existing reply bodies remain unchanged.
+
+With user approval on 20 October 2026, strict TypeScript checking passes and **73 automated tests pass**. This includes ten tests executing the actual composer host and embedded browser script with a minimal VS Code/DOM fake, four submission gate regressions, and an MCP/bridge/storage round trip preserving fenced multiline JavaScript. The first restricted run could not open loopback ports; rerunning with loopback access succeeded. One old transport test incorrectly expected a completed thread in the pending-only payload and now checks durable storage instead.
+
+On macOS, the 0.3.0 VSIX was installed over 0.2.0 in the user's VS Code and the playground window reloaded. The add-comment shortcut opened a native field on line 6; entering `/i ` enabled the single **Senden** button. The temporary text was cleared and its draft discarded. Clicking the visible gutter plus on the same line also opened a focused native field with the shared slash-command placeholder and one disabled send button while empty. No test feedback was sent to the authenticated Claude session. Existing stored conversations remained visible after reload.
+
 ## Verification still required
 
-- Run strict TypeScript checking and the automated tests after human approval. These checks have not run; the successful bundle build does not establish type safety or runtime correctness.
-- Install the resulting VSIX in a real VS Code extension host. Exercise live shortcut/mode switching, `/index` text, local draft recovery, failed submission, all three actions, empty-thread summary, reply, resolve, reopen, original-side commenting and sidebar navigation.
+- Repeat the relevant checks after future changes. Current 0.3.0 strict TypeScript checking and all 73 tests pass; this does not replace native extension-host or authenticated integration validation.
+- Continue the native walkthrough beyond the verified installation, shortcut, gutter-plus and input checks. Exercise live side-composer mode switching, `/index` text, local draft recovery, failed submission, all three submitted actions, empty-thread summary, reply, resolve, reopen, original-side commenting and sidebar navigation.
 - Exercise PR handoff with no PR, missing CLI/authentication, selected summaries/questions, stale summaries, unpushed code, editable preview, successful publication, managed updates, changed destination/account, retry after uncertain publication and duplicate managed comments. Confirm publication does not change local delivery or resolution.
 - Connect an authenticated Claude terminal. Confirm idle wake-up, a second comment during ongoing work, explicit acknowledgment, progress, and a reply in the correct thread.
 - Reload the extension, move code, rename and delete files, and confirm safe thread recovery. Verify that a stalled or exited session can reconnect.
@@ -63,7 +73,7 @@ The separate PR action selects conversation summaries and unresolved questions, 
 | Idle watcher | 24-hour timeout. Reconnect or send Claude a prompt afterward. |
 | Agent context | Up to 20 recent conversation messages and 100,000 quoted characters. Individual review fields are bounded at 200,000 characters; replies at 20,000. |
 | Large backlog | Aggregate transport responses still have a 10,000,000-character ceiling and no pagination. A sufficiently large open queue can exceed it. |
-| Drafts | Submitted threads and controlled-composer drafts persist in workspace storage. If draft cleanup fails after a successful send, a stale draft can remain after restart; it is never automatically replayed. |
+| Drafts | Submitted threads and optional side-composer drafts persist. Native draft recovery is managed by VS Code. If side-draft cleanup fails after a successful send, a stale draft can remain after restart; it is never automatically replayed. |
 | Delivery | At least once. Acknowledgment and reply IDs reduce duplicates; arbitrary edits are not exactly-once operations. |
 | Permissions | Ask and summarize are agent instructions. They do not create a separate filesystem permission boundary. |
 | Demo | Staged interface and simulated responses, not live integration evidence. |
@@ -72,4 +82,4 @@ The separate PR action selects conversation summaries and unresolved questions, 
 
 Open work is tracked in GitHub: [validation and live integration #1](https://github.com/flucas96/local-review/issues/1), [Marketplace publisher and listing #2](https://github.com/flucas96/local-review/issues/2), [large-backlog pagination #3](https://github.com/flucas96/local-review/issues/3), [daily-workflow usability #4](https://github.com/flucas96/local-review/issues/4), and [live modes, PR handoff and demo #5](https://github.com/flucas96/local-review/issues/5).
 
-The `0.2.1` bundle was built successfully with `npm run build`. The icon update was visually reviewed at 32, 64, 128 and 256 pixels; packaging includes its PNG and monochrome view SVG. Type checking, automated tests, and the live end-to-end walkthrough remain pending. Publisher registration and Marketplace publication are pending. Manual workflows are prepared but have not been run as part of this review. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.
+The `0.3.0` bundle and strict TypeScript checking pass, as do all 73 automated tests. The icon was visually reviewed at 32, 64, 128 and 256 pixels; packaging includes its PNG and monochrome view SVG. The live authenticated end-to-end walkthrough, publisher registration and Marketplace publication remain pending. Manual workflows have not been run. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.

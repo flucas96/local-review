@@ -13,7 +13,8 @@ Analyze the project structure before making changes. Keep the native VS Code rev
 ## Product invariants
 
 - Submitted comments are delivered automatically. Unsent keystrokes are not agent instructions.
-- Slash shortcuts switch the visible composer mode before sending; the selected mode must match the single send action.
+- Native inline input is the default, with one send action and `/a`, `/i`, `/r` interpreted when sending. The optional compact side composer previews modes while typing.
+- Keep inline conversations anchored to their code. In the side composer, empty drafts may follow new explicit selections; written drafts and replies must not silently change targets.
 - `ask` and `summarize` request discussion without edits; `implement` requests scoped code changes.
 - `/r` summarizes a local conversation. Publishing to a GitHub PR is a separate preview-and-publish action.
 - PR handoff publishes the reviewed snapshot only and does not acknowledge delivery or resolve local threads.

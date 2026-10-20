@@ -10,7 +10,7 @@ GitHub-style review conversations, directly in VS Code. Select a line in your lo
 
 [![Watch the Local Review demo](docs/media/local-review-poster.jpg)](docs/media/local-review-demo.mp4)
 
-**Demo:** staged interface with simulated Claude responses. It illustrates the intended workflow; it is not a recording of a verified live integration.
+**Demo:** staged interface with simulated Claude responses, showing the optional side composer. The default input is now native inline comments. It is not a recording of a verified live integration.
 
 ## A review that becomes a conversation
 
@@ -24,7 +24,9 @@ Open a diff, leave feedback, and keep reviewing. Each submitted comment reaches 
 
 Native VS Code comments keep the conversation next to the code. The Review sidebar shows what is waiting, received, in progress, or ready for you. Claude can reply and report progress; **you decide when a thread is resolved**.
 
-The compact composer opens beside the diff. Type `/a`, `/i`, or `/r` at the beginning to switch the visible mode immediately, or choose a mode button. One send action always shows the active intent. Drafts stay local until you send; closing the composer keeps them for **Local Review: Entwurf fortsetzen**. Submitted conversations and replies appear inline in the code.
+Write directly beside the changed code: click the gutter **+**, enter `/a`, `/i`, or `/r` followed by your feedback, then use the single **Senden** action. The prefix determines the mode when sending. Existing threads have a native reply field, so the conversation stays attached to its code.
+
+Prefer a separate input? **Local Review: Feedback in Seitenansicht schreiben** opens a compact composer with live mode buttons, saved drafts and selection following. Keep it open and select the next code block; an empty draft follows without moving focus. Written drafts stay pinned and offer an explicit switch. The selected lines remain outlined when you click into the composer. Closing it keeps drafts for **Local Review: Entwurf fortsetzen**. Native inline draft recovery remains managed by VS Code.
 
 ## Carry the conversation into your PR
 
@@ -36,7 +38,7 @@ Use the **An GitHub-PR übergeben** action in the Review toolbar. Local Review f
 
 Download a `.vsix` from [GitHub Releases](https://github.com/flucas96/local-review/releases), then choose **Extensions → … → Install from VSIX…** in VS Code. The extension is not published on the Marketplace yet.
 
-Open a trusted local Git repository and run **Local Review: Mit Claude verbinden**. Choose a new conversation or continue the last one. Open **Local Review: Änderungen reviewen**, select code, and add feedback with **⌘⌥M** on macOS or **Ctrl+Alt+M** on Linux. Choose **Fragen**, **Umsetzen**, or **Zusammenfassen** in the composer, then send. To continue an inline conversation, use its **Antworten** action. The current interface uses German labels.
+Open a trusted local Git repository and run **Local Review: Mit Claude verbinden**. Choose a new conversation or continue the last one. Open **Local Review: Änderungen reviewen**, then click the gutter **+** or select code and press **⌘⌥M** on macOS / **Ctrl+Alt+M** on Linux. Write `/a Why this approach?` or `/i Make this change…` and choose **Senden**. Continue directly in the thread's reply field. The current interface uses German labels.
 
 Requires **VS Code 1.100+**, **Node.js 22+**, **Git**, and an installed, authenticated **Claude Code with `asyncRewake` support**. macOS is the primary target; Linux is unverified. Automatic connection is currently unavailable on Windows. [Installation and troubleshooting →](docs/INSTALL.md)
 
@@ -50,13 +52,13 @@ Code context is captured when you submit feedback. If an old location cannot be 
 
 ## Preview status
 
-This is an early preview. The **0.2.1 bundle builds successfully**. Type checking, automated tests, and a complete VS Code + authenticated Claude walkthrough are **pending verification**. The new composer and GitHub handoff also need a native extension-host walkthrough. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
+This is an early preview. The **0.3.0 bundle and strict TypeScript check pass; all 73 automated tests pass**. A complete authenticated Claude and GitHub PR walkthrough remains pending. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
 
 The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks missing Claude-to-thread navigation, unread replies, delivery readiness, and support for launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
 
 - One local workspace folder and one intended agent session.
 - The background watcher expires after 24 hours; reconnect or send Claude a prompt to rearm it.
-- Submitted comments persist. Composer drafts are saved in workspace storage and can be resumed explicitly.
+- Submitted comments persist. Optional side-composer drafts are saved in workspace storage and can be resumed explicitly; native draft recovery is managed by VS Code.
 - Delivery is at least once. Event IDs reduce duplicate responses; agent side effects cannot be guaranteed exactly once after a crash.
 
 ## Contribute

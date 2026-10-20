@@ -2,7 +2,7 @@
   "name": "local-review",
   "displayName": "Local Review",
   "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "icon": "resources/icon.png",
   "galleryBanner": { "color": "#101B29", "theme": "dark" },
   "publisher": "local-review-dev",
@@ -37,12 +37,27 @@
     "typescript": "7.0.2"
   },
   "contributes": {
+    "colors": [
+      {
+        "id": "localReview.selectionBackground",
+        "description": "Hintergrund der fixierten Codeauswahl für den aktiven Review-Kommentar.",
+        "defaults": { "dark": "#5DB9C326", "light": "#087D8B1F", "highContrast": "#00000000", "highContrastLight": "#00000000" }
+      },
+      {
+        "id": "localReview.selectionBorder",
+        "description": "Rahmen der fixierten Codeauswahl für den aktiven Review-Kommentar.",
+        "defaults": { "dark": "#83D6D8AA", "light": "#247D8FAA", "highContrast": "#FFFFFF", "highContrastLight": "#000000" }
+      }
+    ],
     "commands": [
       { "command": "localReview.startClaude", "title": "Mit Claude verbinden", "category": "Local Review", "icon": "$(plug)" },
       { "command": "localReview.addComment", "title": "Kommentar hinzufügen", "category": "Local Review", "icon": "$(comment-add)" },
+      { "command": "localReview.openComposer", "title": "Feedback in Seitenansicht schreiben", "category": "Local Review", "icon": "$(open-preview)" },
+      { "command": "localReview.submitInline", "title": "Senden", "category": "Local Review", "enablement": "!commentIsEmpty" },
+      { "command": "localReview.cancelDraft", "title": "Entwurf verwerfen", "category": "Local Review", "icon": "$(close)" },
       { "command": "localReview.openChanges", "title": "Änderungen reviewen", "category": "Local Review", "icon": "$(git-compare)" },
       { "command": "localReview.revealThread", "title": "Zum Kommentar springen", "category": "Local Review" },
-      { "command": "localReview.composeReply", "title": "Antworten", "category": "Local Review", "icon": "$(reply)" },
+      { "command": "localReview.composeReply", "title": "In Seitenansicht antworten", "category": "Local Review", "icon": "$(open-preview)" },
       { "command": "localReview.resumeDraft", "title": "Entwurf fortsetzen", "category": "Local Review", "icon": "$(edit)" },
       { "command": "localReview.exportToPr", "title": "An GitHub-PR übergeben", "category": "Local Review", "icon": "$(git-pull-request)" },
       { "command": "localReview.resolve", "title": "Als erledigt markieren", "category": "Local Review", "icon": "$(check)" },
@@ -62,12 +77,18 @@
         { "command": "localReview.openChanges", "when": "view == localReview.threads", "group": "navigation@2" },
         { "command": "localReview.exportToPr", "when": "view == localReview.threads", "group": "navigation@3" }
       ],
+      "comments/commentThread/context": [
+        { "command": "localReview.submitInline", "when": "commentController == localReview", "group": "inline@1" }
+      ],
       "comments/commentThread/title": [
-        { "command": "localReview.composeReply", "when": "commentController == localReview && commentThread == localReview.open", "group": "inline@1" },
+        { "command": "localReview.cancelDraft", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@1" },
+        { "command": "localReview.composeReply", "when": "commentController == localReview && commentThread == localReview.open", "group": "navigation@1" },
         { "command": "localReview.resolve", "when": "commentController == localReview && commentThread == localReview.open", "group": "inline@2" },
         { "command": "localReview.reopen", "when": "commentController == localReview && commentThread == localReview.resolved", "group": "inline@1" }
       ],
       "commandPalette": [
+        { "command": "localReview.submitInline", "when": "false" },
+        { "command": "localReview.cancelDraft", "when": "false" },
         { "command": "localReview.composeReply", "when": "false" },
         { "command": "localReview.resolve", "when": "false" },
         { "command": "localReview.reopen", "when": "false" },

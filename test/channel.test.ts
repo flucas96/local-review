@@ -17,6 +17,7 @@ interface ChannelFixture {
   readonly waitForReview: (eventId: string, deliveryCount?: number) => Promise<string>;
   readonly restartBridge: () => Promise<void>;
   readonly deliveries: ReadonlyMap<string, readonly string[]>;
+  readonly reply: (eventId: string, text: string) => Promise<void>;
 }
 
 /** Connect the packaged MCP server to a real client without involving an LLM. */
@@ -77,6 +78,10 @@ async function fixture(t: TestContext): Promise<ChannelFixture> {
   return {
     store, deliveries, waitForReview,
     connect: () => client.connect(transport),
+    reply: async (eventId, text) => {
+      const response = await client.callTool({ name: 'reply_to_review', arguments: { event_id: eventId, text, status: 'answered' } });
+      assert.notEqual(response.isError, true);
+    },
     restartBridge: async () => {
       for (const bridge of bridges) bridge.dispose();
       const bridge = await createReviewBridge(store);
@@ -121,4 +126,28 @@ test('recovers unfinished work again after the extension connection changes', { 
   await waitForReview(thread.latestEventId);
   await restartBridge();
   assert.ok((await waitForReview(thread.latestEventId, 2)).includes('Resume this after reconnecting.'));
+});
+
+test('preserves fenced reply code, indentation, and actual newlines through the MCP bridge', { timeout: 15_000 }, async (t) => {
+  const { store, connect, waitForReview, reply } = await fixture(t);
+  await connect();
+  const thread = await store.submit(anchor(), 'How would you calculate the retry delay?', 'ask');
+  await waitForReview(thread.latestEventId);
+  const markdown = [
+    'The delay doubles after each attempt:',
+    '',
+    '```javascript',
+    'if (attempt > 0) {',
+    '  const delayMs = 1000 * 2 ** attempt;',
+    '  await delay(delayMs);',
+    '}',
+    '```',
+    '',
+    'Keep `attempt` bounded by the retry limit.',
+  ].join('\n');
+
+  await reply(thread.latestEventId, markdown);
+
+  assert.equal(store.threads.find((candidate) => candidate.id === thread.id)?.messages.at(-1)?.text, markdown);
+  assert.equal(store.threads.find((candidate) => candidate.id === thread.id)?.status, 'answered');
 });

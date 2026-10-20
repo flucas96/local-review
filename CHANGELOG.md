@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+- Make native inline input the default: gutter plus, direct replies, one send action and `/a`, `/i`, `/r` shortcuts evaluated on send.
+- Restore commenting ranges on local files and both sides of Local Review diffs.
+- Keep the optional side composer open after sending, follow explicit new selections without focus changes, and preserve written drafts on their original code.
+- Highlight the accepted selected lines independently of editor focus and separate selected code from surrounding context.
+- Make the side composer smaller with a compact header, mode buttons, bounded code preview and content-sized input.
+- Require Markdown code fences, indentation and real line breaks in agent replies; add a formatted-code MCP round-trip regression.
+- Share in-flight inline submissions, preserve replies on saved code context, and prevent discarding a draft during submission.
+- Add ten composer protocol regressions and four submission gate regressions. Strict TypeScript checking and all 73 automated tests pass.
+
 ## 0.2.1
 
 - Add a mint-on-navy extension icon matching the demo's code-and-conversation identity.

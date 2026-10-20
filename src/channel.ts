@@ -14,7 +14,7 @@ import {
   readDescriptor,
   record,
 } from './connection.js';
-import { buildReviewPrompt, reviewInstructions } from './eventPrompt.js';
+import { buildReviewPrompt, reviewInstructions, reviewReplyInstructions } from './eventPrompt.js';
 import { maximumReplyLength } from './limits.js';
 
 /** Produce a tool result without writing non-protocol output to standard output. */
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   const descriptor = await readDescriptor(descriptorPath);
   const shutdown = new AbortController();
   const bridge = new BridgeClient(descriptor, descriptorPath, shutdown.signal);
-  const server = new Server({ name: 'local-review', version: '0.2.0' }, {
+  const server = new Server({ name: 'local-review', version: '0.3.0' }, {
     capabilities: { tools: {}, ...(noPush ? {} : { experimental: { 'claude/channel': {} } }) },
     instructions: reviewInstructions,
   });
@@ -120,12 +120,12 @@ async function main(): Promise<void> {
       },
       {
         name: 'reply_to_review',
-        description: 'Reply inside the original VS Code review thread. Use answered for questions or summaries and ready when implementation is ready for human review. Only the human resolves threads.',
+        description: 'Reply with Markdown inside the original VS Code review thread. Use answered for questions or summaries and ready when implementation is ready for human review. Only the human resolves threads.',
         inputSchema: {
           type: 'object',
           properties: {
             event_id: { type: 'string', minLength: 1, maxLength: 256 },
-            text: { type: 'string', minLength: 1, maxLength: maximumReplyLength },
+            text: { type: 'string', description: reviewReplyInstructions, minLength: 1, maxLength: maximumReplyLength },
             status: { type: 'string', enum: ['answered', 'ready'] },
           },
           required: ['event_id', 'text', 'status'], additionalProperties: false,
