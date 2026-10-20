@@ -13,7 +13,7 @@ import ImageIO
         }
         let framesURL = URL(fileURLWithPath: arguments[1])
         let outputURL = URL(fileURLWithPath: arguments[2])
-        let frameCount = arguments.count > 3 ? Int(arguments[3]) ?? 900 : 900
+        let frameCount = arguments.count > 3 ? Int(arguments[3]) ?? 1350 : 1350
         let width = 1920
         let height = 1080
         let fps: Int32 = 30

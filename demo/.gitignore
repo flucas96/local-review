@@ -5,3 +5,4 @@ output/playwright/*
 !output/playwright/contact-sheet.jpg
 !output/playwright/key-*.png
 !output/playwright/metadata.json
+!output/playwright/audio-metadata.json

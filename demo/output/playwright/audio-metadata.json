@@ -1,0 +1,13 @@
+{
+  "title": "Quiet Current",
+  "origin": "Original procedural synthesis; no external samples, recordings, or licensed music.",
+  "duration_seconds": 45,
+  "sample_rate": 48000,
+  "channels": 2,
+  "peak_dbfs": -22.04745817419117,
+  "rms_dbfs": -33.43525008020224,
+  "max_sample_delta": 0.0024402145405401196,
+  "fade_in_seconds": 2.5,
+  "fade_out_seconds": 3.8,
+  "clipped_samples": 0
+}
