@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible problem with a review or Claude connection.
+title: "[Bug] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and the result you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: Include the action or shortcut, file state, and whether Claude was idle or working.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Extension version, VS Code version, operating system, Node version, Claude version, and transport (hooks or channels).
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Optional. Remove tokens, connection credentials, and private source code before sharing.

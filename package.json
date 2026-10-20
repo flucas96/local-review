@@ -1,0 +1,102 @@
+{
+  "name": "local-review",
+  "displayName": "Local Review",
+  "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
+  "version": "0.1.1",
+  "publisher": "local-review-dev",
+  "private": true,
+  "license": "UNLICENSED",
+  "repository": { "type": "git", "url": "https://github.com/flucas96/local-review.git" },
+  "homepage": "https://github.com/flucas96/local-review#readme",
+  "bugs": { "url": "https://github.com/flucas96/local-review/issues" },
+  "engines": { "vscode": "^1.100.0", "node": ">=22" },
+  "categories": ["Other"],
+  "main": "./dist/extension.cjs",
+  "activationEvents": ["onStartupFinished"],
+  "extensionDependencies": ["vscode.git"],
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": false, "description": "Local Review connects to a coding agent that can edit workspace files." },
+    "virtualWorkspaces": { "supported": false }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "vscode:prepublish": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "pretest": "npm run build",
+    "test": "node scripts/test.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": { "@modelcontextprotocol/sdk": "1.32.1" },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "1.100.0",
+    "@vscode/vsce": "4.0.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  },
+  "contributes": {
+    "commands": [
+      { "command": "localReview.startClaude", "title": "Mit Claude verbinden", "category": "Local Review", "icon": "$(plug)" },
+      { "command": "localReview.addComment", "title": "Kommentar hinzufügen", "category": "Local Review", "icon": "$(comment-add)" },
+      { "command": "localReview.openChanges", "title": "Änderungen reviewen", "category": "Local Review", "icon": "$(git-compare)" },
+      { "command": "localReview.revealThread", "title": "Zum Kommentar springen", "category": "Local Review" },
+      { "command": "localReview.submitAsk", "title": "Fragen /a", "category": "Local Review", "enablement": "!commentIsEmpty" },
+      { "command": "localReview.submitImplement", "title": "Umsetzen /i", "category": "Local Review", "enablement": "!commentIsEmpty" },
+      { "command": "localReview.submitSummary", "title": "Zusammenfassen /r", "category": "Local Review", "enablement": "!commentIsEmpty" },
+      { "command": "localReview.replyAsk", "title": "Fragen /a", "category": "Local Review", "enablement": "!commentIsEmpty" },
+      { "command": "localReview.replyImplement", "title": "Umsetzen /i", "category": "Local Review", "enablement": "!commentIsEmpty" },
+      { "command": "localReview.replySummary", "title": "Zusammenfassen /r", "category": "Local Review" },
+      { "command": "localReview.resolve", "title": "Als erledigt markieren", "category": "Local Review", "icon": "$(check)" },
+      { "command": "localReview.reopen", "title": "Wieder öffnen", "category": "Local Review", "icon": "$(debug-restart)" },
+      { "command": "localReview.cancelDraft", "title": "Verwerfen", "category": "Local Review", "icon": "$(close)" }
+    ],
+    "views": { "scm": [{ "id": "localReview.threads", "name": "Review", "icon": "$(comment-discussion)" }] },
+    "viewsWelcome": [{
+      "view": "localReview.threads",
+      "contents": "Feedback direkt an Claude Code.\n[Mit Claude verbinden](command:localReview.startClaude)\n[Änderungen reviewen](command:localReview.openChanges)\nMarkiere Code und füge einen Kommentar hinzu. Abgeschickte Kommentare werden automatisch zugestellt."
+    }],
+    "menus": {
+      "editor/context": [{ "command": "localReview.addComment", "when": "resourceScheme == file && isWorkspaceTrusted", "group": "navigation@20" }],
+      "scm/title": [{ "command": "localReview.openChanges", "when": "scmProvider == git", "group": "navigation@20" }],
+      "view/title": [
+        { "command": "localReview.startClaude", "when": "view == localReview.threads", "group": "navigation@1" },
+        { "command": "localReview.openChanges", "when": "view == localReview.threads", "group": "navigation@2" }
+      ],
+      "comments/commentThread/context": [
+        { "command": "localReview.cancelDraft", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@4" },
+        { "command": "localReview.submitAsk", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@1" },
+        { "command": "localReview.submitImplement", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@2" },
+        { "command": "localReview.submitSummary", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@3" },
+        { "command": "localReview.replyAsk", "when": "commentController == localReview && !commentThreadIsEmpty", "group": "inline@1" },
+        { "command": "localReview.replyImplement", "when": "commentController == localReview && !commentThreadIsEmpty", "group": "inline@2" },
+        { "command": "localReview.replySummary", "when": "commentController == localReview && !commentThreadIsEmpty", "group": "inline@3" }
+      ],
+      "comments/commentThread/title": [
+        { "command": "localReview.cancelDraft", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@1" },
+        { "command": "localReview.resolve", "when": "commentController == localReview && commentThread == localReview.open", "group": "inline@1" },
+        { "command": "localReview.reopen", "when": "commentController == localReview && commentThread == localReview.resolved", "group": "inline@1" }
+      ],
+      "commandPalette": [
+        { "command": "localReview.submitAsk", "when": "false" },
+        { "command": "localReview.submitImplement", "when": "false" },
+        { "command": "localReview.submitSummary", "when": "false" },
+        { "command": "localReview.replyAsk", "when": "false" },
+        { "command": "localReview.replyImplement", "when": "false" },
+        { "command": "localReview.replySummary", "when": "false" },
+        { "command": "localReview.resolve", "when": "false" },
+        { "command": "localReview.reopen", "when": "false" },
+        { "command": "localReview.revealThread", "when": "false" },
+        { "command": "localReview.cancelDraft", "when": "false" }
+      ]
+    },
+    "keybindings": [{ "command": "localReview.addComment", "key": "ctrl+alt+m", "mac": "cmd+alt+m", "when": "editorTextFocus && resourceScheme == file" }],
+    "configuration": {
+      "title": "Local Review",
+      "properties": {
+        "localReview.claudePath": { "type": "string", "default": "claude", "scope": "machine", "description": "Pfad zur Claude-Code-Anwendung." },
+        "localReview.nodePath": { "type": "string", "default": "node", "scope": "machine", "description": "Pfad zu Node.js 22 oder neuer für die lokale Verbindung." },
+        "localReview.transport": { "type": "string", "enum": ["hooks", "channels"], "default": "hooks", "description": "Hooks wecken Claude automatisch über asyncRewake. Channels nutzen die neuere experimentelle Push-Schnittstelle." }
+      }
+    }
+  }
+}

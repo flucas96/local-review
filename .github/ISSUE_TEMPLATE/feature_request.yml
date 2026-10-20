@@ -1,0 +1,28 @@
+name: UX or feature request
+description: Suggest an improvement to the local review workflow.
+title: "[UX] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What gets in your way?
+      description: Describe a real review task and the friction you encounter.
+    validations:
+      required: true
+  - type: textarea
+    id: interaction
+    attributes:
+      label: What would a good interaction look like?
+      description: Include the starting point, action, and expected result. Mockups are welcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does this belong?
+      options:
+        - Inline comments and review diffs
+        - Claude connection and automatic delivery
+        - Ask, implement, or summarize
+        - Installation and onboarding
+        - Other
