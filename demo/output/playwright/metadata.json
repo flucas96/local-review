@@ -1,0 +1,16 @@
+{
+  "audio": false,
+  "bytes": 5323599,
+  "codec": "avc1",
+  "duration_seconds": 30,
+  "frames_per_second": 30,
+  "height": 1080,
+  "simulated_agent_responses": true,
+  "staged": true,
+  "width": 1920,
+  "pixel_format": "yuv420p",
+  "h264_profile": "High",
+  "faststart": true,
+  "frame_count": 900,
+  "visual_qa": "Full timeline contact sheet plus full-size encoded keyframes reviewed; no clipping in final reply/resolution controls."
+}

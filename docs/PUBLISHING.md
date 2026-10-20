@@ -14,6 +14,8 @@ Account sign-in, publisher creation, and acceptance of Marketplace terms belong 
 
 Update the version in `package.json` and its lockfile, and describe the change in `CHANGELOG.md`. Resolve the source findings and complete the checks recorded in [REVIEW.md](REVIEW.md). Before Marketplace upload, also settle the publisher ID, licensing, repository metadata, and listing assets.
 
+A developer preview can be shared earlier for evaluation when its release notes explicitly list unfinished verification. The initial 0.1.1 GitHub prerelease follows this route: packaging succeeded, while type checking, automated tests, and a live authenticated Claude walkthrough remain pending. It is not a validated stable release.
+
 The **Validate and package** workflow is manual. On the repository's **Actions** page, select it, choose the intended branch, and explicitly approve the checks. It installs locked dependencies, runs type checking and tests, builds the extension, and uploads the VSIX as a workflow artifact. A successful run is evidence for that commit only.
 
 The **Prepare release** workflow is also manual. Run it on `main`, supply the version already committed in `package.json`, and approve checks and draft-release creation. It validates, packages, and creates a **draft GitHub prerelease** with the VSIX attached. Review the draft, install its VSIX, record the live smoke-test result, then publish the release in GitHub when ready. The workflow never uploads to the Marketplace.

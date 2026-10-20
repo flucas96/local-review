@@ -1,0 +1,7 @@
+.playwright-cli/
+output/*
+!output/playwright/
+output/playwright/*
+!output/playwright/contact-sheet.jpg
+!output/playwright/key-*.png
+!output/playwright/metadata.json
