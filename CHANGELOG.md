@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Add a mint-on-navy extension icon matching the demo's code-and-conversation identity.
+- Include a matching monochrome Review view icon and package both assets in the VSIX.
+
 ## 0.2.0
 
 - Add a controlled feedback composer with visible live `/a`, `/i`, and `/r` mode switching and one explicit send action.

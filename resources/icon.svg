@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="tile" x1="34" y1="16" x2="224" y2="250" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#264751"/>
+      <stop offset="0.55" stop-color="#172D39"/>
+      <stop offset="1" stop-color="#101B29"/>
+    </linearGradient>
+    <linearGradient id="outline" x1="65" y1="61" x2="193" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B7F0E9"/>
+      <stop offset="1" stop-color="#75C7D2"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#tile)"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="53.5" stroke="#B7F0E9" stroke-opacity="0.12"/>
+  <path d="M77 63H179C190.046 63 199 71.954 199 83V151C199 162.046 190.046 171 179 171H103L60 201V83C60 71.954 66 63 77 63Z" fill="#7ECAD1" fill-opacity="0.045" stroke="url(#outline)" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M109 99L89 117L109 135M149 99L169 117L149 135" stroke="#E5FBF7" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -3,3 +3,5 @@
 !README.md
 !CHANGELOG.md
 !dist/*.cjs
+!resources/icon.png
+!resources/review.svg

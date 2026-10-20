@@ -1,5 +1,7 @@
 # Local Review
 
+<img src="https://raw.githubusercontent.com/flucas96/local-review/main/resources/icon.png" alt="Local Review icon" width="80" height="80" />
+
 ### Review local code. Give Claude feedback where it belongs.
 
 GitHub-style review conversations, directly in VS Code. Select a line in your local changes, ask a question or request a change, and send it straight to Claude Code in your terminal. Replies return to the same inline thread.
@@ -48,7 +50,7 @@ Code context is captured when you submit feedback. If an old location cannot be 
 
 ## Preview status
 
-This is an early preview. The **0.2.0 bundle builds successfully**. Type checking, automated tests, and a complete VS Code + authenticated Claude walkthrough are **pending verification**. The new composer and GitHub handoff also need a native extension-host walkthrough. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
+This is an early preview. The **0.2.1 bundle builds successfully**. Type checking, automated tests, and a complete VS Code + authenticated Claude walkthrough are **pending verification**. The new composer and GitHub handoff also need a native extension-host walkthrough. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
 
 The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks missing Claude-to-thread navigation, unread replies, delivery readiness, and support for launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
 
