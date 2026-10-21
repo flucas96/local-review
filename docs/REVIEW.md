@@ -127,7 +127,13 @@ An explicit **Kommentarfenster hervorheben** action applies four project color o
 
 Strict TypeScript checking and **183 tests pass**, including 14 command-level appearance regressions. A peer audit found and fixed a concurrent-settings race: changes made while the backup is being saved abort the operation before the settings write and restore the prior ownership metadata. Tests cover a manual color matching the planned palette and preservation of an earlier successful theme backup.
 
-The version was installed locally, but activation, apply/reset/reapply and focused/unfocused visual comparison remain pending because the Mac reported that it was locked. Installation and API-level tests are not visual verification. No project appearance setting was changed during this check.
+The later native check activated the appearance action in the local Review Lab workspace using Dark+. Its existing answered Python thread gained a visibly distinct surface, darker reply input and neutral top/bottom frame. Focus/blur clicks confirmed that the input remains visible after its blue focus outline disappears. The project had no overrides before applying the action, which explains why installing 0.4.5 alone had not improved its appearance.
+
+## 0.4.6 appearance action completion
+
+Native testing found that reset could wait indefinitely for an earlier success notification to close. The serialized mutation queue awaited VS Code's notification lifetime. Terminal success, high-contrast and error messages are now dispatched without awaiting dismissal; backup and settings writes remain serialized and awaited. Strict TypeScript checking and **185 tests pass**, including two regressions with intentionally unresolved notifications.
+
+Native apply and focus/blur passed with the unchanged palette. The corrected reset/reapply sequence and activation of 0.4.6 remain pending because subsequent computer-control attempts reported no available VS Code window. See [the QA record](QA-2026-10-21.md) for the exact evidence and limits.
 
 ## Verification still required
 

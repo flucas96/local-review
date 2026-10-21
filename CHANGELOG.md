@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.6
+
+- Keep appearance actions responsive while success, high-contrast or error notifications remain open. Restoring or reapplying project colors no longer waits for a notification to be dismissed.
+- Verify the distinct native thread surface and darker reply field in a real dark-theme workspace, including after focus leaves the reply field.
+
 ## 0.4.5
 
 - Add a project-scoped appearance action that gives native review conversations a distinct surface and persistent neutral frame, including when unfocused.

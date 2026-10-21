@@ -247,3 +247,62 @@ test('rapid enhance and reset commands finish in order rather than reviving a la
   assert.equal(workspace.configurationWorkspaceValues.has(setting), false);
   assert.equal(workspace.configurationWrites.length, 2);
 });
+
+test('undismissed success and high contrast notifications do not block later appearance commands', async (context) => {
+  let dismiss = (): void => {};
+  const notification = new Promise<void>((resolve) => { dismiss = resolve; });
+  context.mock.method(window, 'showInformationMessage', (message: string): Promise<void> => {
+    window.information.push(message);
+    return notification;
+  });
+  register();
+  let completed = false;
+  const sequence = (async (): Promise<void> => {
+    await enhance();
+    await reset();
+    window.activeColorTheme.kind = ColorThemeKind.HighContrast;
+    await enhance();
+    window.activeColorTheme.kind = ColorThemeKind.Dark;
+    await enhance();
+    completed = true;
+  })();
+  try {
+    await settle();
+    assert.equal(completed, true, 'Commands must complete while their notifications remain open.');
+    assert.deepEqual(workspace.configurationWorkspaceValues.get(setting), { '[Dark Modern]': dark });
+    assert.equal(workspace.configurationWrites.length, 3);
+    assert.equal(window.information.length, 4);
+  } finally {
+    dismiss();
+    await sequence;
+  }
+});
+
+test('an undismissed error notification does not block recovery or reset', async (context) => {
+  let dismiss = (): void => {};
+  const notification = new Promise<void>((resolve) => { dismiss = resolve; });
+  context.mock.method(window, 'showErrorMessage', (message: string): Promise<void> => {
+    window.errors.push(message);
+    return notification;
+  });
+  register();
+  workspace.beforeConfigurationUpdate = async (): Promise<void> => { throw new Error('Settings unavailable'); };
+  let completed = false;
+  const sequence = (async (): Promise<void> => {
+    await enhance();
+    workspace.beforeConfigurationUpdate = undefined;
+    await enhance();
+    await reset();
+    completed = true;
+  })();
+  try {
+    await settle();
+    assert.equal(completed, true, 'Recovery must complete while the error notification remains open.');
+    assert.equal(workspace.configurationWorkspaceValues.has(setting), false);
+    assert.equal(workspace.configurationWrites.length, 2);
+    assert.deepEqual(window.errors, ['Settings unavailable']);
+  } finally {
+    dismiss();
+    await sequence;
+  }
+});

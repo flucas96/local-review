@@ -26,7 +26,7 @@ Native VS Code comments keep the conversation next to the code. The Review sideb
 
 Use the **✓** on a thread or Review list entry to resolve it. Completed conversations disappear from the editor and list. The Review toolbar's **eye** shows them again; **Wieder öffnen** restores an active thread. Nothing is deleted.
 
-If unfocused conversations blend into your editor, run **Local Review: Kommentarfenster hervorheben** from the Command Palette or Review's **…** menu. It adds a distinct surface and neutral border for the current theme in this project. **Standarddarstellung wiederherstellen** restores the previous colors. VS Code shares these colors with other native comments and Peek results in the same project; high-contrast themes retain their native colors.
+If unfocused conversations blend into your editor, run **Local Review: Kommentarfenster hervorheben** once in each project from the Command Palette or Review's **…** menu. Installing the extension alone does not activate these colors. The action adds a distinct thread surface, darker reply field and neutral thread border for the current theme. **Standarddarstellung wiederherstellen** restores the previous colors. VS Code shares these colors with other native comments and Peek results in the same project; high-contrast themes retain their native colors.
 
 Write directly beside the changed code: click the gutter **+**, enter `/a`, `/i`, or `/r` followed by your feedback, then use the single **Senden** action. The prefix determines the mode when sending. Existing threads have a native reply field, so the conversation stays attached to its code.
 

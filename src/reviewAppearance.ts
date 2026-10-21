@@ -58,8 +58,8 @@ export function registerReviewAppearance(context: vscode.ExtensionContext): vsco
   /** Serialize our own commands without changing settings when the extension loads. */
   function command(id: string, work: () => Promise<void>): vscode.Disposable {
     return vscode.commands.registerCommand(`localReview.${id}`, () => {
-      pending = pending.then(work).catch(async (error: unknown) => {
-        await vscode.window.showErrorMessage(error instanceof Error ? error.message : 'Die Kommentarfarben konnten nicht geändert werden.');
+      pending = pending.then(work).catch((error: unknown) => {
+        void vscode.window.showErrorMessage(error instanceof Error ? error.message : 'Die Kommentarfarben konnten nicht geändert werden.');
       });
       return pending;
     });
@@ -68,7 +68,7 @@ export function registerReviewAppearance(context: vscode.ExtensionContext): vsco
   const enhance = command('enhanceContrast', async () => {
     const kind = vscode.window.activeColorTheme.kind;
     if (kind === vscode.ColorThemeKind.HighContrast || kind === vscode.ColorThemeKind.HighContrastLight) {
-      await vscode.window.showInformationMessage('Hoher Kontrast bleibt aktiv.');
+      void vscode.window.showInformationMessage('Hoher Kontrast bleibt aktiv.');
       return;
     }
     const theme = configuration().get<unknown>('colorTheme');
@@ -101,7 +101,7 @@ export function registerReviewAppearance(context: vscode.ExtensionContext): vsco
       throw new Error('Die Projektfarben wurden inzwischen geändert. Bitte erneut versuchen.');
     }
     await configuration().update(colorSetting, { ...root, [key]: updated }, vscode.ConfigurationTarget.Workspace);
-    await vscode.window.showInformationMessage('Kommentarfenster hervorgehoben.');
+    void vscode.window.showInformationMessage('Kommentarfenster hervorgehoben.');
   });
 
   const reset = command('resetContrast', async () => {
@@ -130,7 +130,7 @@ export function registerReviewAppearance(context: vscode.ExtensionContext): vsco
         vscode.ConfigurationTarget.Workspace);
     }
     await context.workspaceState.update(storageKey, undefined);
-    await vscode.window.showInformationMessage('Kommentarfarben wiederhergestellt.');
+    void vscode.window.showInformationMessage('Kommentarfarben wiederhergestellt.');
   });
   return { dispose(): void { enhance.dispose(); reset.dispose(); } };
 }
