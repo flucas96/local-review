@@ -194,7 +194,7 @@ export async function createReviewController(
   context: vscode.ExtensionContext,
 ): Promise<vscode.Disposable> {
   const controller = vscode.comments.createCommentController(controllerId, 'Lokales Review');
-  controller.options = { prompt: 'Feedback senden', placeHolder: '/a fragen · /i umsetzen · /r zusammenfassen' };
+  controller.options = { prompt: 'Antworten …', placeHolder: '/a fragen · /i umsetzen · /r zusammenfassen' };
   const authors: Record<ReviewMessage['author'], vscode.CommentAuthorInformation> = {
     human: { name: 'Du', iconPath: vscode.Uri.joinPath(context.extensionUri, 'resources', 'reviewer.svg') },
     claude: { name: 'Claude', iconPath: vscode.Uri.joinPath(context.extensionUri, 'resources', 'assistant.svg') },

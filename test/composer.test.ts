@@ -52,6 +52,47 @@ test('selection following does not open a composer before the reviewer asks for 
   assert.equal(window.panels.length, 0);
 });
 
+test('the compact preview shows only the selected code while retaining full context for submission', async () => {
+  const submissions: ComposerSubmission[] = [];
+  const initial = request('first');
+  const { panel, browser } = await openComposer(initial, async (submission) => { submissions.push(submission); });
+  assert.equal(browser.element('code').textContent, initial.anchor?.selectedText);
+  assert.equal(browser.elements.has('contextCode'), false);
+  assert.equal(browser.elements.has('targetState'), false);
+  assert.doesNotMatch(panel.webview.html, /Umgebender Kontext|Antwort fixiert|Ausgewählten Code ansehen/u);
+
+  browser.type('Please explain this selection.');
+  browser.element('send').fire('click');
+  await settle();
+  assert.equal(submissions[0]?.code, initial.code);
+  assert.deepEqual(submissions[0]?.anchor, initial.anchor);
+});
+
+test('selection changes refresh escaped syntax highlighting without publishing surrounding context', async () => {
+  const initial = request('first');
+  const selectedText = '@field_validator("days")';
+  assert.ok(initial.anchor);
+  const { composer, panel, browser } = await openComposer({
+    ...initial, path: 'models.py',
+    anchor: { ...initial.anchor, path: 'models.py', selectedText },
+  });
+  const displayed = panel.sent.find((message): message is Record<string, unknown> =>
+    typeof message === 'object' && message !== null && 'type' in message && message.type === 'open');
+  assert.ok(displayed);
+  assert.equal(browser.element('code').textContent, selectedText);
+  assert.match(String(displayed['codeHtml']), /class="hljs-meta">@field_validator/u);
+  assert.equal('contextCode' in displayed, false);
+
+  await composer.followSelection(request('second'));
+  await settle();
+  const changed = panel.sent.findLast((message): message is Record<string, unknown> =>
+    typeof message === 'object' && message !== null && 'type' in message && message.type === 'open');
+  assert.equal(browser.element('code').textContent, 'second();');
+  assert.ok(changed);
+  assert.doesNotMatch(String(changed['codeHtml']), /field_validator/u);
+  assert.match(String(changed['codeHtml']), /second/u);
+});
+
 test('an empty composer follows selected code without revealing the panel or focusing input', async () => {
   const { composer, panel, browser } = await openComposer();
   const targets: (ComposerRequest | undefined)[] = [];
@@ -64,7 +105,7 @@ test('an empty composer follows selected code without revealing the panel or foc
 
   assert.equal(browser.element('path').textContent, 'second.ts:4');
   assert.equal(browser.element('code').textContent, 'second();');
-  assert.equal(browser.element('contextCode').textContent, 'before();\nsecond();\nafter();');
+  assert.equal(browser.elements.has('contextCode'), false);
   assert.equal(browser.element('feedback').focusCount, initialFocus);
   assert.equal(panel.revealCalls.length, initialReveals);
   assert.equal(targets.at(-1)?.id, 'second');

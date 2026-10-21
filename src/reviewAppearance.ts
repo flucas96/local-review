@@ -4,10 +4,10 @@ import * as vscode from 'vscode';
 const storageKey = 'localReview.appearance.v1';
 const colorSetting = 'colorCustomizations';
 const tokens = ['peekViewResult.background', 'editorCommentsWidget.replyInputBackground',
-  'editorCommentsWidget.unresolvedBorder', 'editorCommentsWidget.resolvedBorder'] as const;
+  'editorCommentsWidget.unresolvedBorder', 'editorCommentsWidget.resolvedBorder', 'contrastBorder'] as const;
 const palettes = {
-  dark: ['#2B2F36', '#23262D', '#69717D', '#545C66'],
-  light: ['#F0F3F7', '#FFFFFF', '#A3ADBA', '#B5BDC8'],
+  dark: ['#292D33', '#24272C', '#515861', '#454C56', '#454C56'],
+  light: ['#F4F5F7', '#FFFFFF', '#C1C7CF', '#CDD2D9', '#CDD2D9'],
 } as const;
 
 interface SavedColor { readonly previous?: unknown; readonly applied: string }
@@ -38,6 +38,8 @@ function savedAppearance(storage: vscode.Memento): SavedAppearance | undefined {
     }
     const validatedColors: Record<string, SavedColor> = {};
     for (const token of tokens) {
+      // Existing backups predate the native reply-outline correction.
+      if (token === 'contrastBorder' && !Object.hasOwn(colors, token)) continue;
       const color = record(colors[token]);
       if (color === undefined || typeof color['applied'] !== 'string') {
         throw new Error('Die gespeicherte Farbsicherung ist unvollständig. Deine Farben wurden nicht geändert.');
@@ -104,7 +106,14 @@ export function registerReviewAppearance(context: vscode.ExtensionContext): vsco
       await context.workspaceState.update(storageKey, originalBackup);
       throw new Error('Die Projektfarben wurden inzwischen geändert. Bitte erneut versuchen.');
     }
-    await configuration().update(colorSetting, { ...root, [key]: updated }, vscode.ConfigurationTarget.Workspace);
+    try {
+      await configuration().update(colorSetting, { ...root, [key]: updated }, vscode.ConfigurationTarget.Workspace);
+    } catch (error: unknown) {
+      if (isDeepStrictEqual(workspaceColors(), original)) {
+        await context.workspaceState.update(storageKey, originalBackup);
+      }
+      throw error;
+    }
     void vscode.window.showInformationMessage('Kommentarfenster hervorgehoben.');
   });
 

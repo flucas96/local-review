@@ -2,7 +2,7 @@
   "name": "local-review",
   "displayName": "Local Review",
   "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "icon": "resources/icon.png",
   "galleryBanner": { "color": "#101B29", "theme": "dark" },
   "publisher": "local-review-dev",
@@ -28,7 +28,7 @@
     "test": "node scripts/test.mjs",
     "package": "node scripts/package.mjs"
   },
-  "dependencies": { "@modelcontextprotocol/sdk": "1.32.1" },
+  "dependencies": { "@modelcontextprotocol/sdk": "1.32.1", "highlight.js": "11.12.0" },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "1.100.0",

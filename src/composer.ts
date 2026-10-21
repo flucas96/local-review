@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import { parseComposerInput } from './composerIntent.js';
+import { codePreviewHtml, codePreviewStyles } from './codePreview.js';
 import type { CodeAnchor, ReviewIntent } from './contracts.js';
 import { maximumIdentifierLength, maximumPathLength, maximumReviewTextLength } from './limits.js';
 import { webviewFontStyles } from './webviewStyles.js';
@@ -147,7 +148,7 @@ export function createComposer(
         type: 'open', id: draft.id, title: draft.title,
         path: draft.anchor === undefined ? draft.path : `${draft.path}:${draft.anchor.startLine}${draft.anchor.endLine === draft.anchor.startLine ? '' : `–${draft.anchor.endLine}`}`,
         code: draft.anchor?.selectedText ?? draft.code,
-        contextCode: draft.anchor === undefined ? '' : draft.code,
+        codeHtml: codePreviewHtml(draft.anchor?.selectedText ?? draft.code, draft.path),
         text: draft.text, intent: draft.intent, existingThread: draft.threadId !== undefined,
         busy: submitting.has(draft.id), focus,
         canOpenCode: onOpenCode !== undefined && draft.anchor !== undefined,
@@ -351,7 +352,7 @@ export function createComposer(
   };
 }
 
-/** Render a self-contained, network-free webview; user text is inserted as text only. */
+/** Render a network-free composer; source markup accepts only host-generated token spans. */
 function composerHtml(): string {
   const nonce = randomBytes(24).toString('base64');
   return `<!DOCTYPE html>
@@ -359,25 +360,24 @@ function composerHtml(): string {
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
 <title>Review-Kommentar</title><style nonce="${nonce}">
 ${webviewFontStyles}
+${codePreviewStyles}
 :root { --review-line: var(--vscode-widget-border, var(--vscode-panel-border, #80808045)); --review-accent: var(--vscode-localReview-selectionBorder, var(--vscode-focusBorder)); --review-tint: var(--vscode-localReview-selectionBackground, var(--vscode-textBlockQuote-background)); --review-surface: var(--vscode-editorWidget-background, var(--vscode-editor-background)); }
 * { box-sizing: border-box; } body { margin: 0; padding: 16px 14px; color: var(--vscode-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.5 var(--review-font-ui); }
-main { max-width: 620px; margin: auto; } .topbar { display: flex; align-items: center; gap: 9px; min-height: 32px; margin-bottom: 13px; } .brand { width: 28px; height: 28px; display: grid; place-items: center; flex-shrink: 0; border: 1px solid var(--review-accent); border-radius: 9px; background: var(--review-tint); } .brand svg { width: 16px; height: 16px; } .target { flex: 1; min-width: 0; } .eyebrow { margin: 0 0 1px; color: var(--vscode-descriptionForeground); font-size: 10px; font-weight: 500; } #path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; font-size: 12px; font-weight: 600; } #targetState { display: inline-flex; align-items: center; gap: 5px; color: var(--vscode-descriptionForeground); border: 1px solid var(--review-line); border-radius: 20px; padding: 2px 7px; font-size: 10px; white-space: nowrap; } #targetState::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--review-accent); }
+main { max-width: 620px; margin: auto; } .code-header { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 3px 7px 3px 12px; border-bottom: 1px solid var(--review-line); } #path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; color: var(--vscode-descriptionForeground); font: 11px/1.5 var(--review-font-code); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-.code-context { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 10px; } .code-context > details { flex: 1; min-width: 0; margin: 0; } details { border: 1px solid var(--review-line); border-radius: 8px; padding: 7px 10px; margin: 0 0 10px; background: var(--review-surface); } summary { cursor: pointer; color: var(--vscode-descriptionForeground); font-size: 11px; } .code-mark { margin: 0 5px 0 2px; color: var(--vscode-foreground); font: 11px var(--review-font-code); } pre { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; max-height: 84px; overflow: auto; margin: 8px 0 1px; padding: 8px 9px; border: 1px solid var(--review-line); border-radius: 5px; background: var(--vscode-editor-background); font: 12px/1.55 var(--review-font-code); } #context { margin: 8px 0 0; padding: 5px 7px; background: transparent; } #openCode { flex-shrink: 0; white-space: nowrap; margin: 2px 0; color: var(--vscode-textLink-foreground); background: transparent; } #openCode:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground); } #openCode[hidden] { display: none; }
-.selection { border: 1px solid var(--review-accent); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; background: var(--review-tint); font-size: 11px; } .selection p { margin: 0 0 5px; } .selection button { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); } .selection[hidden], details[hidden] { display: none; }
+.code-context { margin-bottom: 12px; border: 1px solid var(--review-line); border-radius: 8px; background: var(--review-surface); overflow: hidden; } pre { white-space: pre; tab-size: 4; max-height: 158px; overflow: auto; margin: 0; padding: 11px 12px; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); font: 12px/1.6 var(--review-font-code); } #code { font: inherit; } #openCode { display: grid; place-items: center; flex-shrink: 0; width: 26px; height: 26px; padding: 4px; color: var(--vscode-icon-foreground, var(--vscode-foreground)); background: transparent; } #openCode:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground); } #openCode[hidden] { display: none; }
+.selection { border: 1px solid var(--review-accent); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; background: var(--review-tint); font-size: 11px; } .selection p { margin: 0 0 5px; } .selection button { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); } .selection[hidden] { display: none; }
 .compose-card { border: 1px solid var(--review-line); border-radius: 11px; background: var(--review-surface); box-shadow: 0 3px 12px #00000012; overflow: hidden; } .compose-card:focus-within { border-color: var(--vscode-focusBorder); } .compose-toolbar { padding: 7px 8px 0; } .modes { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; border-radius: 7px; background: var(--vscode-editor-background); } button { font: inherit; font-size: 11px; cursor: pointer; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; min-height: 26px; } button:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
 .mode { color: var(--vscode-descriptionForeground); background: transparent; min-height: 26px; } .mode:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } .mode[aria-pressed="true"] { color: var(--vscode-foreground); background: var(--review-tint); border-color: var(--review-accent); font-weight: 600; } kbd { color: var(--vscode-descriptionForeground); font: 10px var(--review-font-code); margin-left: 5px; }
 .mode-hint { margin: 8px 12px 0; color: var(--vscode-descriptionForeground); font-size: 11px; }
 textarea { display: block; width: calc(100% - 16px); min-height: 90px; max-height: 180px; field-sizing: content; resize: vertical; border-radius: 5px; border: 1px solid transparent; color: var(--vscode-foreground); background: transparent; margin: 7px 8px 0; padding: 7px 5px; font: inherit; line-height: 1.6; } textarea::placeholder { color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground)); } textarea:disabled { opacity: .7; }
 .footer { display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; align-items: center; border-top: 1px solid var(--review-line); padding: 7px 9px; margin-top: 5px; } .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; max-width: 100%; margin-left: auto; } .muted { color: var(--vscode-descriptionForeground); font-size: 10px; } #saved { flex: 1 1 100px; } #send { display: inline-flex; align-items: center; gap: 6px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); border: 1px solid var(--vscode-contrastActiveBorder, transparent); border-radius: 6px; min-height: 28px; padding: 4px 10px; font-weight: 600; } #send::after { content: ''; width: 6px; height: 6px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); margin: 0 2px 0 0; } #send:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); } button:disabled { cursor: default; opacity: .5; } #discard { color: var(--vscode-descriptionForeground); background: transparent; padding: 3px 5px; } #discard:hover:not(:disabled) { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } #error { color: var(--vscode-errorForeground); margin: 8px 2px 0; font-size: 12px; } #error:empty { display: none; } #shortcut { white-space: nowrap; font: 10px var(--review-font-code); padding: 1px 4px; border: 1px solid var(--review-line); border-radius: 4px; }
-.vscode-high-contrast .compose-card, .vscode-high-contrast-light .compose-card, .vscode-high-contrast details, .vscode-high-contrast-light details { border-color: var(--vscode-contrastBorder); box-shadow: none; } .vscode-high-contrast .mode[aria-pressed="true"], .vscode-high-contrast-light .mode[aria-pressed="true"] { border-color: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder)); } .vscode-high-contrast textarea, .vscode-high-contrast-light textarea { border-color: var(--vscode-input-border, var(--vscode-contrastBorder)); }
-@media (max-width: 380px) { body { padding: 12px 10px; } .topbar { gap: 7px; } .brand { width: 25px; height: 25px; } .footer { gap: 6px; } .actions { gap: 4px; } kbd { display: none; } #targetState { font-size: 9px; padding: 2px 5px; } }
+.vscode-high-contrast .compose-card, .vscode-high-contrast-light .compose-card, .vscode-high-contrast .code-context, .vscode-high-contrast-light .code-context { border-color: var(--vscode-contrastBorder); box-shadow: none; } .vscode-high-contrast .mode[aria-pressed="true"], .vscode-high-contrast-light .mode[aria-pressed="true"] { border-color: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder)); } .vscode-high-contrast textarea, .vscode-high-contrast-light textarea { border-color: var(--vscode-input-border, var(--vscode-contrastBorder)); }
+@media (max-width: 380px) { body { padding: 12px 10px; } .footer { gap: 6px; } .actions { gap: 4px; } kbd { display: none; } }
 </style></head><body><main>
-<header class="topbar"><span class="brand" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l-3 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7z"/><path d="M10 8l-2 2 2 2m4-4l2 2-2 2"/></svg></span><div class="target"><p class="eyebrow">Local Review</p><p id="path"></p></div><span id="targetState" role="status">Auswahl folgt</span></header><h1 id="title" class="sr-only">Review-Kommentar</h1>
+<h1 id="title" class="sr-only">Review-Kommentar</h1>
 <aside id="selection" class="selection" hidden aria-live="polite"><p><strong>Neue Auswahl:</strong> <span id="selectionPath"></span></p><p class="muted">Aktueller Entwurf bleibt gespeichert.</p><button type="button" id="takeSelection">Neue Auswahl kommentieren</button></aside>
-<div class="code-context"><details><summary><span class="code-mark" aria-hidden="true">&lt;/&gt;</span>Ausgewählten Code ansehen</summary><pre id="code"></pre>
-<details id="context" hidden><summary>Umgebender Kontext · gespeichert</summary><pre id="contextCode"></pre></details>
-</details><button type="button" id="openCode" hidden title="Ausgewählten Code im Editor öffnen" aria-label="Ausgewählten Code im Editor öffnen"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5H5v14h14v-8M13 3h8v8m0-8L10 14"/></svg></button></div><section class="compose-card" aria-label="Feedback an Claude"><div class="compose-toolbar"><div class="modes" role="group" aria-label="Review-Modus">
+<section class="code-context" aria-label="Ausgewählter Code"><header class="code-header"><p id="path"></p><button type="button" id="openCode" hidden title="Code im Editor öffnen" aria-label="Code im Editor öffnen"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5H5v14h14v-8M13 3h8v8m0-8L10 14"/></svg></button></header><pre tabindex="0" aria-label="Ausgewählter Code"><code id="code"></code></pre></section><section class="compose-card" aria-label="Feedback an Claude"><div class="compose-toolbar"><div class="modes" role="group" aria-label="Review-Modus">
 <button type="button" class="mode" data-mode="ask" aria-pressed="true">Fragen <kbd>/a</kbd></button>
 <button type="button" class="mode" data-mode="implement" aria-pressed="false">Umsetzen <kbd>/i</kbd></button>
 <button type="button" class="mode" data-mode="summarize" aria-pressed="false">Zusammenfassen <kbd>/r</kbd></button></div></div>
@@ -415,7 +415,6 @@ function paint() {
   const modeDescription = needsConversation ? '/r in einer bestehenden Unterhaltung senden.' : hints[effective.intent];
   if (modeHint.textContent !== modeDescription) modeHint.textContent = modeDescription;
   modeHint.className = needsConversation ? 'mode-hint' : 'sr-only';
-  document.getElementById('targetState').textContent = sent ? 'Gesendet' : active && active.existingThread ? 'Antwort fixiert' : input.value.trim() ? 'Entwurf fixiert' : 'Auswahl folgt';
   send.textContent = busy ? (discarding ? 'Wird verworfen …' : 'Wird gesendet …') : labels[effective.intent];
   send.disabled = busy || sent || changingSelection || composing || !active || (!finalized.text.trim() && !(finalized.intent === 'summarize' && active.existingThread));
   input.disabled = busy || sent || changingSelection || !active;
@@ -503,9 +502,9 @@ window.addEventListener('message', event => {
     document.getElementById('title').textContent = message.title;
     document.getElementById('path').textContent = message.path;
     document.getElementById('path').setAttribute('title', message.path);
-    document.getElementById('code').textContent = message.code;
-    document.getElementById('contextCode').textContent = message.contextCode;
-    document.getElementById('context').hidden = !message.contextCode || message.contextCode === message.code;
+    const code = document.getElementById('code');
+    code.textContent = message.code;
+    if (typeof message.codeHtml === 'string') code.innerHTML = message.codeHtml;
     saved.textContent = 'Entwurf bleibt lokal';
     error.textContent = '';
     paint();

@@ -10,10 +10,11 @@ const setting = 'workbench.colorCustomizations';
 const themeSetting = 'workbench.colorTheme';
 const registrations: vscode.Disposable[] = [];
 const dark = {
-  'peekViewResult.background': '#2B2F36',
-  'editorCommentsWidget.replyInputBackground': '#23262D',
-  'editorCommentsWidget.unresolvedBorder': '#69717D',
-  'editorCommentsWidget.resolvedBorder': '#545C66',
+  'peekViewResult.background': '#292D33',
+  'editorCommentsWidget.replyInputBackground': '#24272C',
+  'editorCommentsWidget.unresolvedBorder': '#515861',
+  'editorCommentsWidget.resolvedBorder': '#454C56',
+  'contrastBorder': '#454C56',
 };
 
 afterEach(() => {
@@ -110,8 +111,9 @@ test('light and dark themes are isolated and reset restores all enhanced themes'
   assert.deepEqual(workspace.configurationWorkspaceValues.get(setting), {
     '[Dark Modern]': dark,
     '[Light Modern]': {
-      'peekViewResult.background': '#F0F3F7', 'editorCommentsWidget.replyInputBackground': '#FFFFFF',
-      'editorCommentsWidget.unresolvedBorder': '#A3ADBA', 'editorCommentsWidget.resolvedBorder': '#B5BDC8',
+      'peekViewResult.background': '#F4F5F7', 'editorCommentsWidget.replyInputBackground': '#FFFFFF',
+      'editorCommentsWidget.unresolvedBorder': '#C1C7CF', 'editorCommentsWidget.resolvedBorder': '#CDD2D9',
+      'contrastBorder': '#CDD2D9',
     },
   });
   await reset();
@@ -150,6 +152,35 @@ test('a replaced theme block is a manual override and reset leaves it untouched'
   assert.deepEqual(workspace.configurationWorkspaceValues.get(setting), manual);
   assert.equal(workspace.configurationWrites.length, writes);
 });
+
+for (const scenario of ['direct reset', 'reapply', 'failed reapply'] as const) {
+  test(`legacy appearance backups preserve prior colors after ${scenario}`, async () => {
+    const legacy = {
+      'peekViewResult.background': '#2B2F36',
+      'editorCommentsWidget.replyInputBackground': '#23262D',
+      'editorCommentsWidget.unresolvedBorder': '#69717D',
+      'editorCommentsWidget.resolvedBorder': '#545C66',
+    };
+    const original = { '[Dark Modern]': { 'peekViewResult.background': '#121212', 'contrastBorder': '#556677' } };
+    workspace.configurationWorkspaceValues.set(setting, { '[Dark Modern]': { ...legacy, contrastBorder: '#556677' } });
+    const storage = register();
+    await storage.update('localReview.appearance.v1', {
+      version: 1, rootAbsent: false, themes: {
+        '[Dark Modern]': { existed: true, colors: Object.fromEntries(Object.entries(legacy).map(([token, applied]) => [token, {
+          applied, ...(token === 'peekViewResult.background' ? { previous: '#121212' } : {}),
+        }])) },
+      },
+    });
+    if (scenario === 'failed reapply') {
+      workspace.beforeConfigurationUpdate = async (): Promise<void> => { throw new Error('Settings unavailable'); };
+    }
+    if (scenario !== 'direct reset') await enhance();
+    workspace.beforeConfigurationUpdate = undefined;
+    await reset();
+    assert.deepEqual(workspace.configurationWorkspaceValues.get(setting), original);
+    assert.deepEqual(window.errors, scenario === 'failed reapply' ? ['Settings unavailable'] : []);
+  });
+}
 
 test('invalid project data is not overwritten', async () => {
   register();
