@@ -93,10 +93,10 @@ class FileReviewStore implements ReviewStore {
     return this.#snapshot.events;
   }
 
-  /** Expose undelivered events only while their human-owned thread remains open. */
+  /** Expose current undelivered work while preserving superseded events as history. */
   get pendingEvents(): readonly ReviewEvent[] {
-    const openThreads = new Set(this.#snapshot.threads.filter((thread) => !thread.resolved).map((thread) => thread.id));
-    return this.#snapshot.events.filter((event) => !event.acknowledged && openThreads.has(event.threadId));
+    const currentEvents = new Set(this.#snapshot.threads.filter((thread) => !thread.resolved).map((thread) => thread.latestEventId));
+    return this.#snapshot.events.filter((event) => !event.acknowledged && currentEvents.has(event.id));
   }
 
   /** Capture a human comment as a new immutable event and reopen its thread. */

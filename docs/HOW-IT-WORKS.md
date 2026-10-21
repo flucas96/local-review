@@ -26,6 +26,8 @@ Der Status zeigt, ob dein Auftrag wartet, empfangen wurde, bearbeitet wird oder 
 
 Du kannst weiterfragen, eine weitere Änderung anfordern oder den Thread erledigen. **Eine Antwort von Claude erledigt den Thread nicht automatisch.**
 
+Mit **✓** erledigst du einen Thread direkt am Kommentar oder in der Review-Liste. Er verschwindet aus Editor und Listen. Das **Augen-Symbol · Erledigte anzeigen** holt die Unterhaltung zurück; **Wieder öffnen** macht sie wieder aktiv. Der Verlauf bleibt gespeichert.
+
 ## Fragt Claude ständig nach Kommentaren?
 
 **Das Sprachmodell tut das nicht.** Ein kleiner Helfer auf deinem Rechner wartet im Hintergrund auf gesendetes Feedback. Sobald ein Kommentar vorliegt, gibt er dessen Inhalt an Claude weiter. Dafür sind keine laufenden Modellanfragen nötig. Falls gerade ein Werkzeug läuft, darf es zunächst fertig werden.
@@ -43,7 +45,9 @@ Der Standardweg kombiniert Claude-Code-Hooks mit MCP-Werkzeugen. Das Modell füh
 
 Local Review speichert jeden Auftrag zuerst mit unveränderlicher Ereignis-ID, Datei, Zeilen und Codekontext im lokalen Workspace-Speicher von VS Code. Erst nach erfolgreichem Speichern werden wartende Komponenten benachrichtigt. [Speicherung](../src/store.ts) · [Übergebener Kontext](../src/eventPrompt.ts)
 
-Der Hook-Helfer liest beim Start ausstehende Aufträge und hält anschließend eine lokale Anfrage über `GET /events?after=0` offen. Ein neues gespeichertes Ereignis beantwortet diese Anfrage sofort. Ohne Arbeit läuft eine leere Anfrage nach spätestens 20 Sekunden aus und wird erneut gestellt. **Die 20 Sekunden sind kein Zustellintervall.** Der Helfer liefert den Auftrag über einen `asyncRewake`-Hook an Claude Code. Claude erhält ihn an einem sicheren Verarbeitungspunkt; laufende Werkzeugaufrufe werden nicht abgebrochen. [Hook-Helfer](../src/hookWaiter.ts) · [Long Polling](../src/bridge.ts)
+Der Hook-Helfer liest ausstehende Aufträge über `GET /pending` und hält anschließend eine lokale Anfrage über `GET /events?after=<sequence>` offen. Ein neues gespeichertes Ereignis beantwortet diese Anfrage sofort. Ohne Arbeit läuft eine leere Anfrage nach spätestens 20 Sekunden aus; der Helfer prüft den aktuellen Arbeitsstand und wartet erneut. **Die 20 Sekunden sind kein Zustellintervall.** Der Helfer liefert den Auftrag über einen `asyncRewake`-Hook an Claude Code. Claude erhält ihn an einem sicheren Verarbeitungspunkt; laufende Werkzeugaufrufe werden nicht abgebrochen. [Hook-Helfer](../src/hookWaiter.ts) · [Long Polling](../src/bridge.ts)
+
+Eine lokale Zustellhistorie pro Claude-Sitzung verhindert, dass jeder neue `Stop`- oder Werkzeug-Hook denselben noch unbestätigten Kommentar wieder ankündigt. Die Nachricht beginnt mit Datei, Modus und kurzem Feedback-Auszug; gemeinsame Anweisungen stehen pro Nachrichtenpaket nur einmal darin. Die Bestätigung im Review-Speicher ändert sich dadurch nicht. `SessionStart` umgeht die Historie bewusst und stellt den neuesten unerledigten Auftrag jedes offenen Threads wieder bereit, auch beim Fortsetzen derselben Unterhaltung. Frühere Aufträge bleiben als Verlauf erhalten, werden nach einem Folgekommentar aber nicht als neue Arbeit zugestellt.
 
 Claude bestätigt mit `acknowledge_review`, meldet den Arbeitsbeginn mit `set_review_working` und antwortet mit `reply_to_review`. „Verbunden“ allein bestätigt keinen einzelnen Auftrag. Der MCP-Helfer prüft zusätzlich alle 15 Sekunden die lokale Verbindung. Auch diese Prüfung ist kein Modellaufruf. [MCP-Werkzeuge und Verbindungsprüfung](../src/channel.ts)
 
@@ -64,6 +68,6 @@ Die [SVG-Grafik](media/local-review-flow.svg) zeigt den gemeinsamen Review-Zyklu
 
 Die daraus gerenderte [PNG-Version](media/local-review-flow.png) wird im README und Installationspaket verwendet, weil VS Codes Paketprüfung SVG-Bilder im README ablehnt.
 
-Stand: Version 0.4.3. Die Darstellung erklärt die implementierte Bedienung und ist kein Nachweis einer bereits vollständig geprüften Live-Sitzung. Den aktuellen Prüfstand dokumentiert [REVIEW.md](REVIEW.md).
+Stand: Version 0.4.4. Die Darstellung erklärt die implementierte Bedienung und ist kein Nachweis einer bereits vollständig geprüften Live-Sitzung. Den aktuellen Prüfstand dokumentiert [REVIEW.md](REVIEW.md).
 
 </details>

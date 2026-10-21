@@ -45,7 +45,7 @@ export async function prepareConnection(
     },
   });
   const waiterCommand = [nodePath, waiterPath, '--connection', connectionPath].map(quotePosix).join(' ');
-  const waiter = { type: 'command', command: waiterCommand, asyncRewake: true, timeout: 86_400 };
+  const waiter = { type: 'command', command: waiterCommand, asyncRewake: true, timeout: 86_400, statusMessage: 'Wartet auf Review-Feedback' };
   await writePrivateJson(hooksPath, {
     hooks: Object.fromEntries(['SessionStart', 'UserPromptSubmit', 'PostToolUse', 'Stop'].map(event => [event, [{ hooks: [waiter] }]])),
   });

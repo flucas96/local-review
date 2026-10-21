@@ -56,6 +56,19 @@ test('serializes concurrent submissions into a strictly increasing durable event
   assert.deepEqual(reopened.events, store.events);
 });
 
+test('superseded feedback stays in history instead of resurfacing as fresh work after restart', async (t) => {
+  const { store, file, root } = await fixture(t);
+  const first = await store.submit(anchor(), 'Please refactor this.', 'implement');
+  const second = await store.submit(anchor(), 'Keep the public signature.', 'implement', first.id);
+  assert.deepEqual(store.pendingEvents.map((event) => event.id), [second.latestEventId]);
+  await store.updateFromAgent({ eventId: second.latestEventId, status: 'ready', text: 'Done with the same signature.' });
+  const restored = await createReviewStore(file, root);
+  assert.equal(restored.pendingEvents.length, 0);
+  assert.equal(restored.events.length, 2);
+  assert.equal(restored.events[0]?.acknowledged, false);
+  assert.equal(restored.threads[0]?.messages[0]?.text, 'Please refactor this.');
+});
+
 test('acknowledges each event idempotently without downgrading progress', async (t) => {
   const { store } = await fixture(t);
   const thread = await store.submit(anchor(), 'Please fix this.', 'implement');

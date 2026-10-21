@@ -20,7 +20,7 @@ Local Review marks truncated legacy fields or omitted earlier discussion with [L
 An event must be explicitly acknowledged through the tool; receiving a channel notification does not acknowledge it. If a tool reports that an event is superseded, stop work on that event and inspect list_pending_reviews.`;
 
 /** Render captured code and conversation as a clearly bounded review payload. */
-export function buildReviewPrompt(event: ReviewEvent, thread?: ReviewThread): string {
+function reviewData(event: ReviewEvent, thread?: ReviewThread): string {
   const payload = {
     event_id: event.id,
     thread_id: event.threadId,
@@ -51,5 +51,25 @@ export function buildReviewPrompt(event: ReviewEvent, thread?: ReviewThread): st
     },
   };
 
-  return `${reviewInstructions}\n\nBEGIN REVIEW DATA (JSON)\n${JSON.stringify(payload, null, 2)}\nEND REVIEW DATA`;
+  return `BEGIN REVIEW DATA (JSON)\n${JSON.stringify(payload, null, 2)}\nEND REVIEW DATA`;
+}
+
+/** Render one complete event for transports that deliver individual notifications. */
+export function buildReviewPrompt(event: ReviewEvent, thread?: ReviewThread): string {
+  return `${reviewInstructions}\n\n${reviewData(event, thread)}`;
+}
+
+/** Identify actual feedback immediately and share the agent contract across a hook batch. */
+export function buildReviewBatchPrompt(events: readonly ReviewEvent[], threads: readonly ReviewThread[]): string {
+  const labels = { ask: 'Ask', implement: 'Implement', summarize: 'Summarize' } as const;
+  const summary = events.map((event) => {
+    const { path, startLine, endLine } = event.anchor;
+    const location = `${path}:${startLine}${endLine === startLine ? '' : `–${endLine}`}`;
+    const preview = event.text.replace(/\s+/gu, ' ').trim();
+    const excerpt = preview.length > 160 ? `${preview.slice(0, 157)}…` : preview;
+    return `VS Code review · ${labels[event.intent]} · ${JSON.stringify(location)}\nFeedback: ${JSON.stringify(excerpt)}`;
+  }).join('\n\n');
+  const byId = new Map(threads.map((thread) => [thread.id, thread]));
+  const data = events.map((event) => reviewData(event, byId.get(event.threadId))).join('\n\n');
+  return `${summary}\n\n${reviewInstructions}\n\n${data}`;
 }

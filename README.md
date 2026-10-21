@@ -24,6 +24,8 @@ Open a diff, leave feedback, and keep reviewing. Each submitted comment reaches 
 
 Native VS Code comments keep the conversation next to the code. The Review sidebar shows what is waiting, received, in progress, or ready for you. Claude can reply and report progress; **you decide when a thread is resolved**.
 
+Use the **✓** on a thread or Review list entry to resolve it. Completed conversations disappear from the editor and list. The Review toolbar's **eye** shows them again; **Wieder öffnen** restores an active thread. Nothing is deleted.
+
 Write directly beside the changed code: click the gutter **+**, enter `/a`, `/i`, or `/r` followed by your feedback, then use the single **Senden** action. The prefix determines the mode when sending. Existing threads have a native reply field, so the conversation stays attached to its code.
 
 Prefer a separate input? **Local Review: Feedback in Seitenansicht schreiben** opens a compact composer with live mode buttons, saved drafts and selection following. Keep it open and select the next code block; an empty draft follows without moving focus. Written drafts stay pinned and offer an explicit switch. The selected lines remain outlined when you click into the composer. Closing it keeps drafts for **Local Review: Entwurf fortsetzen**. Native inline draft recovery remains managed by VS Code.
@@ -51,6 +53,8 @@ Requires **VS Code 1.100+**, **Node.js 22+**, **Git**, and an installed, authent
 ![Code review with an agent: inspect changes, comment, discuss or change, and verify](docs/media/local-review-flow.png)
 
 Send a comment and your connected Claude session receives it automatically. Claude's answer returns to the same conversation. The LLM does not repeatedly check for comments; a small local helper waits for saved feedback. An already running tool can finish before Claude handles the new request. [Visual walkthrough and optional technical details →](docs/HOW-IT-WORKS.md)
+
+Hook messages identify the file, review mode and actual feedback. Ordinary tool calls and Stop hooks do not repeatedly announce the same event in one session. Starting or resuming Claude explicitly recovers unfinished work; delivery is still acknowledged only through Claude's review tools.
 
 Connection files and submitted threads live in VS Code's workspace storage. The extension passes configuration to the session it launches, without editing your repository's `.claude` files or `.mcp.json`. Claude's existing tool permissions still apply; `/a` and `/r` are instructions to avoid edits, not a separate permission sandbox.
 

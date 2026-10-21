@@ -3,7 +3,9 @@ import { mkdir, readdir, rmdir, stat, unlink, writeFile } from 'node:fs/promises
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { BridgeClient, BridgeProtocolError, readBatch, readDescriptor, record } from './connection.js';
-import { buildReviewPrompt } from './eventPrompt.js';
+import type { ReviewBatch } from './connection.js';
+import { buildReviewBatchPrompt } from './eventPrompt.js';
+import { createHookDeliveryLedger } from './hookDelivery.js';
 
 /** Read the bounded JSON envelope supplied to a Claude command hook. */
 async function readHookInput(): Promise<Record<string, unknown>> {
@@ -79,8 +81,9 @@ async function main(): Promise<void> {
   const connectionPath = argument < 0 ? undefined : process.argv[argument + 1];
   if (connectionPath === undefined) throw new Error('Missing review connection path.');
   const envelope = await readHookInput();
+  if (envelope.agent_id !== undefined && envelope.agent_id !== null && envelope.agent_id !== '') return;
   const sessionId = envelope.session_id;
-  if (typeof sessionId !== 'string' || sessionId.length === 0 || sessionId.length > 512) {
+  if (typeof sessionId !== 'string' || sessionId.trim().length === 0 || sessionId.length > 512 || sessionId.includes('\0')) {
     throw new Error('Claude did not supply a session identifier.');
   }
   const descriptor = await readDescriptor(connectionPath);
@@ -96,23 +99,45 @@ async function main(): Promise<void> {
   let retryMs = 500;
   let recover = envelope.hook_event_name === 'SessionStart';
   try {
+    const delivery = await createHookDeliveryLedger(connectionPath, descriptor.workspaceRoot, sessionId);
+    let snapshot = true;
+    let sequence = 0;
     while (!abort.signal.aborted) {
+      let batch: ReviewBatch;
       try {
-        const batch = readBatch(await bridge.request(recover ? '/pending' : '/events?after=0'), descriptor.workspaceRoot);
-        recover = false;
+        batch = readBatch(await bridge.request(snapshot ? '/pending' : `/events?after=${sequence}`), descriptor.workspaceRoot);
         retryMs = 500;
-        if (batch.events.length === 0) continue;
-        const prompts = batch.events.map(event => buildReviewPrompt(event, batch.threads.find(thread => thread.id === event.threadId)));
-        process.stderr.write(`New review feedback from the human in VS Code. Process these review events using the local-review MCP tools.\n\n${prompts.join('\n\n')}\n`);
-        process.exitCode = 2;
-        return;
       } catch (error: unknown) {
         if (error instanceof BridgeProtocolError) throw error;
         if (abort.signal.aborted) break;
         await delay(retryMs, undefined, { signal: abort.signal }).catch(() => {});
         retryMs = Math.min(retryMs * 2, 10_000);
         try { await bridge.refresh(); } catch { /* The extension may be reloading its connection file. */ }
+        snapshot = true;
+        continue;
       }
+      if (abort.signal.aborted) break;
+      if (!snapshot) {
+        snapshot = true;
+        continue;
+      }
+      sequence = batch.events.reduce((highest, event) => Math.max(highest, event.sequence), 0);
+      const events = delivery.select(batch.events, recover);
+      recover = false;
+      if (events.length > 0) {
+        const prompt = `${buildReviewBatchPrompt(events, batch.threads)}\n`;
+        await new Promise<void>((resolveOutput, rejectOutput) => {
+          process.stderr.write(prompt, (error) => {
+            if (error === null || error === undefined) resolveOutput();
+            else rejectOutput(error);
+          });
+        });
+        await delivery.record(events);
+        process.exitCode = 2;
+        return;
+      }
+      await delivery.record([]);
+      snapshot = false;
     }
   } finally {
     process.off('SIGINT', stop);

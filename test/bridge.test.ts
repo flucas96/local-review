@@ -47,6 +47,23 @@ function waitForConnection(bridge: ReviewBridge): Promise<void> {
   });
 }
 
+test('delivers only actionable latest work and keeps earlier feedback in its conversation', async (t) => {
+  const { bridge, store, headers } = await fixture(t);
+  const first = await store.submit(anchor(), 'Refactor the retry loop.', 'implement');
+  const latest = await store.submit(anchor(), 'Preserve the public signature.', 'implement', first.id);
+  for (const route of ['/pending', '/events?after=0']) {
+    const response = await fetch(`${bridge.descriptor.url}${route}`, { headers });
+    const batch = readBatch(await response.json(), store.workspaceRoot);
+    assert.deepEqual(batch.events.map((event) => event.id), [latest.latestEventId]);
+    assert.equal(batch.threads[0]?.messages[0]?.text, 'Refactor the retry loop.');
+  }
+  await store.updateFromAgent({ eventId: latest.latestEventId, status: 'ready', text: 'Ready for review.' });
+  const response = await fetch(`${bridge.descriptor.url}/pending`, { headers });
+  const batch = readBatch(await response.json(), store.workspaceRoot);
+  assert.equal(batch.events.length, 0);
+  assert.equal(store.events[0]?.acknowledged, false);
+});
+
 test('requires authentication and publishes a random-port loopback descriptor', async (t) => {
   const { bridge, store, headers } = await fixture(t);
   assert.match(bridge.descriptor.url, /^http:\/\/127\.0\.0\.1:\d+$/u);

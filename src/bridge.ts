@@ -242,17 +242,17 @@ class LocalReviewBridge implements ReviewBridge {
 
   /** Keep acknowledged but unfinished latest work visible for agent recovery. */
   #pendingEvents(): readonly ReviewEvent[] {
-    const openThreads = new Set<string>();
+    const currentEvents = new Set<string>();
     const unfinished = new Set<string>();
     for (const thread of this.#store.threads) {
       if (!thread.resolved) {
-        openThreads.add(thread.id);
+        currentEvents.add(thread.latestEventId);
         if (thread.status === 'queued' || thread.status === 'received' || thread.status === 'working') {
           unfinished.add(thread.latestEventId);
         }
       }
     }
-    return this.#store.events.filter((event) => openThreads.has(event.threadId)
+    return this.#store.events.filter((event) => currentEvents.has(event.id)
       && (!event.acknowledged || unfinished.has(event.id)));
   }
 

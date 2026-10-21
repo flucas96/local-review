@@ -40,7 +40,7 @@ New Claude replies are instructed to use Markdown code fences with a language la
 
 Use the small **editor icon** in the reply header beside the author or beside the optional composer's code preview. Hover it for the **Code im Editor öffnen** label. Confirmed source opens in the project editor without closing the discussion. Hover symbols, use **Cmd-click** on macOS / **Ctrl-click** elsewhere, or press **F12** for definitions as supported by the language extension. If the reply is proposed code or cannot be uniquely located, **Codevorschau** opens a read-only snapshot with syntax colors; project navigation is limited. Original and captured snippets are never applied to a file by this action. A preview of an unsent draft may need reopening from that draft after a window reload.
 
-Wait for explicit receipt and Claude's reply. **Zur Prüfung** means the implementation is ready for your review. Use **Als erledigt markieren** when you accept it, or **Wieder öffnen** to continue a resolved conversation. Human and Claude messages use distinct avatars; VS Code controls the native card layout. The optional side composer adds compact rounded surfaces and theme-aware mint accents without changing your editor theme.
+Wait for explicit receipt and Claude's reply. **Zur Prüfung** means the implementation is ready for your review. Use the **✓ Als erledigt markieren** action on the thread or Review list entry when you accept it. Completed threads disappear from the editor, Comments panel and Review list by default. Use the Review toolbar's **eye · Erledigte anzeigen**, then **Wieder öffnen** to continue one. The visibility preference is saved per workspace; all discussion remains stored. Human and Claude messages use distinct avatars; VS Code controls the native card layout.
 
 ## Share selected feedback with an open PR
 
@@ -54,6 +54,7 @@ Install the GitHub CLI and sign in with `gh auth login` if you want PR handoffs.
 | Multiple Claude installations | Set the Claude path explicitly; different terminals may resolve different versions. |
 | Claude has exited but the terminal remains | Run **Mit Claude verbinden** again. Use **Verbindung neu starten** when offered. |
 | A comment remains waiting | Open the connected terminal and check Claude's startup and tool approval prompts. A live bridge is not proof that Claude acknowledged the event. |
+| Repeated “Stop hook feedback” | Update the extension and reconnect Claude once. Normal hook rearming remembers events already announced in that session. Starting/resuming a session intentionally recovers unfinished work. The generic hook heading belongs to Claude Code; the message beneath it identifies the feedback. |
 | More than 24 hours of idle time | Reconnect or send a prompt to Claude to rearm the watcher. |
 | Context has changed | Open the thread. A saved excerpt is used when the original location cannot be matched safely. |
 

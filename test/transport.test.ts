@@ -30,7 +30,7 @@ type HookEvent = 'SessionStart' | 'UserPromptSubmit' | 'PostToolUse' | 'Stop';
 interface TransportFixture {
   readonly store: ReviewStore;
   readonly bridge: ReviewBridge;
-  readonly startHook: (sessionId: string, event?: HookEvent) => HookProcess;
+  readonly startHook: (sessionId: string, event?: HookEvent, agentId?: string) => HookProcess;
 }
 
 /** Exercise the packaged hook against a real local bridge and isolated durable storage. */
@@ -64,7 +64,7 @@ async function fixture(t: TestContext): Promise<TransportFixture> {
   });
 
   /** Supply the same stdin session envelope as a Claude command hook. */
-  function startHook(sessionId: string, event: HookEvent = 'Stop'): HookProcess {
+  function startHook(sessionId: string, event: HookEvent = 'Stop', agentId?: string): HookProcess {
     const child = spawn(process.execPath, [hookPath, '--connection', connectionPath], { stdio: 'pipe' });
     let stdout = '';
     let stderr = '';
@@ -84,6 +84,7 @@ async function fixture(t: TestContext): Promise<TransportFixture> {
       session_id: sessionId,
       cwd: root,
       hook_event_name: event,
+      ...(agentId === undefined ? {} : { agent_id: agentId }),
     }));
     const hook = { process: child, completed };
     hooks.push(hook);
@@ -229,5 +230,55 @@ test('exits a duplicate workspace watcher cleanly while its owner continues wait
   const delivered = await owner.completed;
   assert.equal(delivered.code, 2);
   assert.ok(delivered.stderr.includes(thread.latestEventId));
+  assert.equal(store.events[0]?.acknowledged, false);
+});
+
+test('does not repeat unacknowledged comments on Stop and PostToolUse while delivering genuinely new feedback', { timeout: 15_000 }, async (t) => {
+  const { store, startHook } = await fixture(t);
+  const first = await store.submit(anchor(), 'Die erste Frage bitte nur einmal zustellen.', 'ask');
+  assert.equal((await startHook('active-session', 'SessionStart').completed).code, 2);
+
+  const second = await store.submit(anchor(), 'Die zweite Frage ist ein neuer Auftrag.', 'ask');
+  const afterStop = await startHook('active-session', 'Stop').completed;
+  assert.equal(afterStop.code, 2);
+  assert.ok(afterStop.stderr.includes(second.latestEventId));
+  assert.ok(!afterStop.stderr.includes(first.latestEventId));
+
+  const third = await store.submit(anchor(), 'Die dritte Frage kam nach dem Tool.', 'ask');
+  const afterTool = await startHook('active-session', 'PostToolUse').completed;
+  assert.equal(afterTool.code, 2);
+  assert.ok(afterTool.stderr.includes(third.latestEventId));
+  assert.ok(!afterTool.stderr.includes(first.latestEventId));
+  assert.ok(!afterTool.stderr.includes(second.latestEventId));
+  assert.ok(store.events.every((event) => !event.acknowledged));
+  assert.ok(store.threads.every((thread) => thread.status === 'queued'));
+});
+
+test('replays unfinished work after SessionStart in the same resumed session and in a new session', { timeout: 15_000 }, async (t) => {
+  const { store, startHook } = await fixture(t);
+  const thread = await store.submit(anchor(), 'Nach einem Abbruch bitte wieder aufnehmen.', 'implement');
+  const first = await startHook('resumed-session', 'SessionStart').completed;
+  assert.equal(first.code, 2);
+  await store.updateFromAgent({ eventId: thread.latestEventId, status: 'working' });
+
+  const resumed = await startHook('resumed-session', 'SessionStart').completed;
+  assert.equal(resumed.code, 2);
+  assert.ok(resumed.stderr.includes(thread.latestEventId));
+  const another = await startHook('new-session', 'SessionStart').completed;
+  assert.equal(another.code, 2);
+  assert.ok(another.stderr.includes(thread.latestEventId));
+  assert.equal(store.threads[0]?.status, 'working');
+});
+
+test('ignores subagent hooks before they can claim the workspace watcher', { timeout: 15_000 }, async (t) => {
+  const { store, startHook } = await fixture(t);
+  const subagent = await startHook('parent-session', 'PostToolUse', 'review-subagent').completed;
+  assert.equal(subagent.code, 0);
+  assert.equal(subagent.stdout, '');
+  assert.equal(subagent.stderr, '');
+  const thread = await store.submit(anchor(), 'Dieser Kommentar gehört in den Hauptchat.', 'ask');
+  const parent = await startHook('parent-session', 'Stop').completed;
+  assert.equal(parent.code, 2);
+  assert.ok(parent.stderr.includes(thread.latestEventId));
   assert.equal(store.events[0]?.acknowledged, false);
 });
