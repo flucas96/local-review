@@ -88,7 +88,7 @@ test('an active external review receiver prevents launching a competing managed 
 
   await commands.executeCommand('localReview.startClaude');
 
-  assert.match(window.information[0] ?? '', /andere Claude-Sitzung.*\/exit/u);
+  assert.match(window.information[0] ?? '', /Review-Verbindung.*\/exit.*45 Sekunden/u);
   assert.deepEqual(window.quickPicks, []);
   assert.equal(window.terminals.length, 1);
   assert.equal(external.showCalls, 0);
@@ -134,7 +134,7 @@ test('a receiver connecting while the conversation picker is open prevents a com
   await commands.executeCommand('localReview.startClaude');
 
   assert.equal(window.quickPicks.length, 1);
-  assert.match(window.information[0] ?? '', /andere Claude-Sitzung/u);
+  assert.match(window.information[0] ?? '', /Review-Verbindung.*aktiv oder wird getrennt/u);
   assert.equal(window.terminals.length, 0);
   assert.deepEqual(await readdir(root), []);
 });
@@ -162,7 +162,7 @@ test('a receiver taking over after managed command completion during setup preve
 
   assert.equal(configurationReads, 2);
   assert.deepEqual(window.errors, []);
-  assert.match(window.information[0] ?? '', /andere Claude-Sitzung/u);
+  assert.match(window.information[0] ?? '', /Review-Verbindung.*aktiv oder wird getrennt/u);
   assert.equal(window.terminals.length, 1);
   assert.equal(terminal.disposed, false);
   assert.deepEqual(terminal.sendTextCalls, []);

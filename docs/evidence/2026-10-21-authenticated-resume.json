@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-21",
+  "extensionVersion": "0.4.8",
+  "vscodeVersion": "1.143.0",
+  "claudeVersion": "2.1.280",
+  "workspace": "review-lab-ux-check",
+  "agent": "authenticated Claude via configured gateway",
+  "scenario": "New conversation memorizes phrase, resume selected conversation, native ask recalls phrase, uppercase /R summarizes, human resolves",
+  "thread": {
+    "id": "0f26d86f-0987-42f9-b84d-44167ac515d9",
+    "path": "src/review_lab/models.py",
+    "startLine": 70,
+    "endLine": 78,
+    "resolved": true,
+    "status": "answered",
+    "messages": [
+      {
+        "id": "914d6abe-a7b4-4a46-9b1c-103eb3afae2f",
+        "eventId": "0445a137-1976-4fe9-89f2-c63b4a2a5741",
+        "author": "human",
+        "text": "QA: Which two-word phrase did I ask you to remember earlier in this Claude conversation? Reply with only that phrase in this review thread. Do not edit any files.",
+        "createdAt": "2026-10-21T21:22:20.200Z"
+      },
+      {
+        "id": "ecaf27db-c9b7-46ec-a2d0-ea7c88bdb65c",
+        "author": "claude",
+        "text": "teal lighthouse",
+        "createdAt": "2026-10-21T21:22:59.109Z",
+        "eventId": "0445a137-1976-4fe9-89f2-c63b4a2a5741"
+      },
+      {
+        "id": "7abc1199-5c55-4190-ae11-3d0d351bc3f8",
+        "eventId": "77124d47-7635-481e-ab01-7fbcd180b4b1",
+        "author": "human",
+        "text": "Fasse diese Unterhaltung und ihren aktuellen Stand zusammen.",
+        "createdAt": "2026-10-21T21:24:26.339Z"
+      },
+      {
+        "id": "2bd1ca5f-611e-4ef1-8b57-a9ac18c1249a",
+        "author": "claude",
+        "text": "**Zusammenfassung des Threads** (`src/review_lab/models.py:70–78`, `Summary`-Klasse):\n\n1. QA-Frage: Welche zwei Wörter sollte sich Claude merken? → Antwort: \"teal lighthouse\".\n2. Diese Anfrage: Zusammenfassung der Unterhaltung.\n\n**Aktueller Stand:** Keine Code-Änderungen vorgenommen oder angefragt. Es handelt sich bisher um reine QA-/Diskussions-Events (`ask`, `summarize`), keine `implement`-Anfrage zur `Summary`-Klasse.",
+        "createdAt": "2026-10-21T21:24:36.214Z",
+        "eventId": "77124d47-7635-481e-ab01-7fbcd180b4b1"
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "0445a137-1976-4fe9-89f2-c63b4a2a5741",
+      "intent": "ask",
+      "text": "QA: Which two-word phrase did I ask you to remember earlier in this Claude conversation? Reply with only that phrase in this review thread. Do not edit any files.",
+      "createdAt": "2026-10-21T21:22:20.200Z",
+      "acknowledged": true
+    },
+    {
+      "id": "77124d47-7635-481e-ab01-7fbcd180b4b1",
+      "intent": "summarize",
+      "text": "Fasse diese Unterhaltung und ihren aktuellen Stand zusammen.",
+      "createdAt": "2026-10-21T21:24:26.339Z",
+      "acknowledged": true
+    }
+  ]
+}

@@ -83,7 +83,7 @@ The command, editor action and keyboard shortcut capture code when opening a dra
 
 This is an early preview. Native conversations have distinct avatars and compact status headings; the optional side composer uses rounded surfaces and quiet mint accents. Code actions connect the chat to the native editor. VS Code controls the native comment layout. Current checks and remaining authenticated integration work are recorded in the [review findings](docs/REVIEW.md). The demo uses simulated responses.
 
-The [end-to-end verification report](docs/QA-2026-10-21.md) distinguishes real VS Code clicks, controlled failure simulations and live Claude results, with unverified flows left open.
+The [native UX verification report](docs/UX-REVIEW-2026-10-21.md) includes a real authenticated new/resumed Claude conversation: an inline question recalled earlier conversation context, `/R` summarized the thread, and human resolution hid it. Screenshots and a sanitized event trace distinguish these results from earlier simulated walkthroughs. Separate-terminal execution and busy-agent delivery remain unverified in this pass. [Earlier end-to-end checks](docs/QA-2026-10-21.md).
 
 The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks follow-up work on Claude-to-thread navigation, unread replies and exact session ownership. The launcher opens VS Code's integrated terminal; the copy action supports a separate terminal. [Session connection details](docs/CLAUDE-SESSION-ATTACH.md) distinguish resuming history from a future connection to an already-running process.
 

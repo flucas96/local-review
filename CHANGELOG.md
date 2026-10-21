@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.9
+
+- Shorten the conversation-picker hint so the required `/exit` instruction stays visible in the native dialog.
+- Make Node startup failures report the selected executable and bounded failure details instead of implying every failure is a path problem.
+- Explain that a connection may still be disconnecting for up to 45 seconds after Claude exits, without incorrectly reporting another active session.
+
 ## 0.4.8
 
 - Choose a specific saved Claude conversation through its native session picker, or start a new one. Resume keeps history and replaces the previous automatic “latest conversation” selection.

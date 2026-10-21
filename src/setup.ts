@@ -80,7 +80,7 @@ async function selectConversation(): Promise<boolean | undefined> {
   const selection = await vscode.window.showQuickPick([
     {
       label: 'Unterhaltung auswählen', description: 'Bestehenden Kontext behalten', resume: true,
-      detail: 'Claude öffnet deine Sitzungsliste. Läuft die gewünschte Sitzung noch, beende sie zuerst mit /exit.',
+      detail: 'Sitzung läuft noch? Erst /exit, dann hier auswählen.',
     },
     { label: 'Neue Unterhaltung', description: 'Mit leerem Gespräch beginnen', resume: false },
   ], { title: 'Claude Code verbinden', placeHolder: 'Welche Unterhaltung soll deine Kommentare erhalten?' });
@@ -126,7 +126,7 @@ export function registerClaudeLauncher(
     && !inactiveTerminals.has(candidate) && candidate.exitStatus === undefined && vscode.window.terminals.includes(candidate);
   const receiverConflict = (ownedTerminal: vscode.Terminal | undefined): boolean => {
     if (bridge.state.deliveryReady !== true || isLive(ownedTerminal)) return false;
-    void vscode.window.showInformationMessage('Eine andere Claude-Sitzung empfängt bereits dein Feedback. Beende sie dort mit /exit, bevor du hier verbindest. Der Status aktualisiert sich innerhalb von 45 Sekunden.');
+    void vscode.window.showInformationMessage('Die Review-Verbindung ist noch aktiv oder wird getrennt. Falls Claude noch läuft: /exit. Der Status aktualisiert sich innerhalb von 45 Sekunden.');
     return true;
   };
   const register = (id: string, action: () => Promise<void>): vscode.Disposable => vscode.commands.registerCommand(id, async () => {
