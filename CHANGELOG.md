@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+- Move the code-reference icon to the native comment header beside the author and timestamp; remove the extra action row from reply text.
+- Open single code targets directly and use one compact picker for replies containing multiple code blocks.
+- Bind header actions to extension-owned native comments; reply Markdown no longer needs permission to run commands.
+
 ## 0.4.1
 
 - Present native code blocks as darker rounded cards with a visible frame, real inner spacing and a compact file/language header; stored code remains unchanged.

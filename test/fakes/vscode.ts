@@ -316,6 +316,8 @@ export const window = {
   visibleTextEditors: [] as FakeTextEditor[],
   shownDocuments: [] as { readonly document: FakeTextDocument; readonly options: vscode.TextDocumentShowOptions | undefined }[],
   statusMessages: [] as string[],
+  quickPicks: [] as (readonly vscode.QuickPickItem[])[],
+  quickPickIndex: 0 as number | undefined,
   beforeShow: undefined as (() => Promise<void>) | undefined,
   createWebviewPanel(): FakePanel {
     const panel = new FakePanel();
@@ -324,6 +326,12 @@ export const window = {
   },
   async showErrorMessage(message: string): Promise<void> { this.errors.push(message); },
   async showInformationMessage(message: string): Promise<void> { this.information.push(message); },
+
+  /** Choose or cancel an actual navigation picker without creating synthetic command arguments. */
+  async showQuickPick<T extends vscode.QuickPickItem>(items: readonly T[]): Promise<T | undefined> {
+    this.quickPicks.push(items);
+    return this.quickPickIndex === undefined ? undefined : items[this.quickPickIndex];
+  },
 
   /** Record only completed reveals so command completion can be tested accurately. */
   async showTextDocument(document: FakeTextDocument, options?: vscode.TextDocumentShowOptions): Promise<FakeTextEditor> {
@@ -376,6 +384,8 @@ export function resetFakeWindow(): void {
   window.visibleTextEditors.length = 0;
   window.shownDocuments.length = 0;
   window.statusMessages.length = 0;
+  window.quickPicks.length = 0;
+  window.quickPickIndex = 0;
   window.beforeShow = undefined;
 }
 

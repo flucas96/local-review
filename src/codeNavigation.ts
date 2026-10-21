@@ -4,11 +4,12 @@ import * as vscode from 'vscode';
 import { hashDocumentText } from './anchors.js';
 import { readCodeBlocks, withDetectedCodeBlocks } from './codeBlocks.js';
 import { locateCodeBlock } from './codeLocation.js';
-import { CodeReferences, openCodeCommand } from './codeReferences.js';
+import { CodeReferences, openCodeCommand, type CodeAction } from './codeReferences.js';
 import type { CodeAnchor, ReviewMessage, ReviewStore, ReviewThread } from './contracts.js';
 import { isWorkspaceRelativePath } from './git.js';
 
 const snippetScheme = 'local-review-snippet';
+export const openCommentCodeCommand = 'localReview.openCommentCode';
 const languageAliases: Readonly<Record<string, string>> = {
   js: 'javascript', cjs: 'javascript', mjs: 'javascript', jsx: 'javascriptreact',
   ts: 'typescript', tsx: 'typescriptreact', py: 'python', rs: 'rust', rb: 'ruby',
@@ -24,12 +25,14 @@ interface Snippet {
 /** Render native themed code and open only confirmed source or a read-only code preview. */
 export interface ReviewCodeNavigation extends vscode.Disposable {
   markdown(thread: ReviewThread, message: ReviewMessage): vscode.MarkdownString;
+  bindComment(thread: ReviewThread, message: ReviewMessage, comment: vscode.Comment): void;
   openAnchor(anchor: CodeAnchor): Promise<void>;
 }
 
 /** Connect review-owned code links to the real editor without accepting paths from Markdown. */
 export async function createCodeNavigation(store: ReviewStore): Promise<ReviewCodeNavigation> {
   const references = new CodeReferences();
+  const commentActions = new WeakMap<object, readonly CodeAction[]>();
   const snippets = new Map<string, Snippet>();
   const languageIds = await vscode.languages.getLanguages();
   const registeredLanguages = new Map(languageIds.map((language) => [language.toLowerCase(), language]));
@@ -133,19 +136,33 @@ export async function createCodeNavigation(store: ReviewStore): Promise<ReviewCo
     });
   });
 
+  const commentCommand = vscode.commands.registerCommand(openCommentCodeCommand, async (comment: unknown) => {
+    if (typeof comment !== 'object' || comment === null) return;
+    const actions = commentActions.get(comment);
+    if (actions === undefined || actions.length === 0) return;
+    const selected = actions.length === 1 ? actions[0]
+      : await vscode.window.showQuickPick(actions, { placeHolder: 'Code öffnen', matchOnDescription: true });
+    if (selected !== undefined && actions.includes(selected)) await vscode.commands.executeCommand(openCodeCommand, selected.handle);
+  });
+
   return {
     markdown(thread, message) {
       const body = new vscode.MarkdownString(references.render(thread, message, anchorLanguage(thread.anchor)));
       body.supportThemeIcons = true;
       body.supportHtml = true;
-      body.isTrusted = { enabledCommands: [openCodeCommand] };
       return body;
+    },
+    bindComment(thread, message, comment) {
+      const actions = references.actions(thread, message, anchorLanguage(thread.anchor));
+      commentActions.set(comment, actions);
+      if (actions.length > 0) comment.contextValue = 'localReview.code';
     },
     async openAnchor(anchor) {
       await openCode(anchor, anchor.selectedText, anchorLanguage(anchor), true);
     },
     dispose() {
       command.dispose();
+      commentCommand.dispose();
       provider.dispose();
       references.dispose();
       snippets.clear();

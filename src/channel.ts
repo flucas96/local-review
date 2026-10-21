@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   const descriptor = await readDescriptor(descriptorPath);
   const shutdown = new AbortController();
   const bridge = new BridgeClient(descriptor, descriptorPath, shutdown.signal);
-  const server = new Server({ name: 'local-review', version: '0.4.1' }, {
+  const server = new Server({ name: 'local-review', version: '0.4.2' }, {
     capabilities: { tools: {}, ...(noPush ? {} : { experimental: { 'claude/channel': {} } }) },
     instructions: reviewInstructions,
   });

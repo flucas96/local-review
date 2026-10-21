@@ -348,7 +348,11 @@ export async function createReviewController(
 
   /** Copy durable status into the native comment controls. */
   function updateNative(thread: ReviewThread, native: vscode.CommentThread): void {
-    native.comments = thread.messages.map((message) => nativeComment(message, authors[message.author], codeNavigation.markdown(thread, message)));
+    native.comments = thread.messages.map((message) => {
+      const comment = nativeComment(message, authors[message.author], codeNavigation.markdown(thread, message));
+      codeNavigation.bindComment(thread, message, comment);
+      return comment;
+    });
     native.contextValue = thread.resolved ? 'localReview.resolved' : 'localReview.open';
     native.state = thread.resolved ? vscode.CommentThreadState.Resolved : vscode.CommentThreadState.Unresolved;
     native.canReply = thread.resolved ? false : authors.human;

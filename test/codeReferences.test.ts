@@ -21,121 +21,147 @@ function fixture(text: string, author: ReviewMessage['author'] = 'claude'): { th
   return { thread, message };
 }
 
-/** Decode generated command arguments exactly as VS Code would pass them. */
-function handles(markdown: string): unknown[] {
-  return [...markdown.matchAll(/\]\(command:localReview\.openCode\?([^\s)]+)(?: "[^"]*")?\)/gu)]
-    .flatMap((match) => JSON.parse(decodeURIComponent(match[1] ?? '')) as unknown[]);
-}
-
-test('generates opaque handles that resolve only to stored identities', () => {
+test('generates opaque native actions that resolve only to stored identities', () => {
   const references = new CodeReferences();
   const { thread, message } = fixture('```typescript\nconst secret = 1;\n```');
-  const rendered = references.render(thread, message, 'javascript');
-  const [handle] = handles(rendered);
-  assert.match(rendered, /^\[\$\(go-to-file\)\]\(command:localReview\.openCode\?\S+ "Code im Editor öffnen"\)/u);
+  const [action] = references.actions(thread, message, 'javascript');
+  assert.ok(action);
   assert.equal(openCodeCommand, 'localReview.openCode');
-  assert.match(String(handle), /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/u);
-  assert.deepEqual(references.resolve(handle), { threadId: thread.id, messageId: message.id, blockIndex: 0 });
-  assert.equal(String(handle).includes('secret'), false);
-  assert.equal(String(handle).includes(thread.anchor.path), false);
-  assert.equal(String(handle).includes(thread.id), false);
-  assert.equal(String(handle).includes(message.id), false);
+  assert.match(action.handle, /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/u);
+  assert.equal(action.label, 'Code 1 · typescript');
+  assert.equal(action.description, 'const secret = 1;');
+  assert.deepEqual(references.resolve(action.handle), { threadId: thread.id, messageId: message.id, blockIndex: 0 });
+  for (const privateValue of ['secret', thread.anchor.path, thread.id, message.id]) {
+    assert.equal(action.handle.includes(privateValue), false);
+  }
 });
 
-test('reuses handles for stable rerenders while keeping messages distinct', () => {
+test('renders code cards without generating a command link or body action row', () => {
+  const references = new CodeReferences();
+  const { thread, message } = fixture('Before.\n\n```typescript\nvalue();\n```\n\nAfter.');
+  references.actions(thread, message, 'typescript');
+  const rendered = references.render(thread, message, 'typescript');
+  assert.ok(rendered.startsWith('Before.\n\n'));
+  assert.ok(rendered.includes('```typescript\nvalue();\n```'));
+  assert.ok(rendered.endsWith('\n\nAfter.'));
+  assert.equal(rendered.includes('command:'), false);
+  assert.equal(rendered.includes('$(go-to-file)'), false);
+});
+
+test('reuses action handles across rerenders while keeping messages distinct', () => {
   const references = new CodeReferences();
   const { thread, message } = fixture('```\nvalue();\n```');
-  const first = references.render(thread, message, 'typescript');
-  assert.deepEqual(handles(references.render(thread, message, 'javascript')), handles(first));
+  const [first] = references.actions(thread, message, 'typescript');
+  assert.ok(first);
+  references.render(thread, message, 'typescript');
+  assert.equal(references.actions(thread, message, 'javascript')[0]?.handle, first.handle);
   const another = { ...message, id: 'message-2' };
-  const [different] = handles(references.render(thread, another, 'typescript'));
-  assert.notEqual(different, handles(first)[0]);
-  assert.deepEqual(references.resolve(different), { threadId: thread.id, messageId: another.id, blockIndex: 0 });
+  const [different] = references.actions(thread, another, 'typescript');
+  assert.ok(different);
+  assert.notEqual(different.handle, first.handle);
+  assert.deepEqual(references.resolve(different.handle), { threadId: thread.id, messageId: another.id, blockIndex: 0 });
 });
 
 test('rejects unknown handles, caller-constructed identities and disposed handles', () => {
   const references = new CodeReferences();
   const { thread, message } = fixture('```\nvalue();\n```');
-  const [handle] = handles(references.render(thread, message, 'typescript'));
+  const handle = references.actions(thread, message, 'typescript')[0]?.handle;
+  assert.ok(handle);
   for (const invalid of [undefined, null, 0, [], {}, { threadId: thread.id, messageId: message.id, blockIndex: 0 }, 'message-1', 'unknown']) {
     assert.equal(references.resolve(invalid), undefined);
   }
-  const otherSession = new CodeReferences();
-  assert.equal(otherSession.resolve(handle), undefined);
+  assert.equal(new CodeReferences().resolve(handle), undefined);
   references.dispose();
   assert.equal(references.resolve(handle), undefined);
 });
 
-test('adds a context action to Claude prose while preserving human prose exactly', () => {
+test('offers a selected-context action for Claude prose without adding it to the body', () => {
   const references = new CodeReferences();
   const { thread, message } = fixture('Please inspect `retry()` in the selected code.');
-  const rendered = references.render(thread, message, 'javascript');
-  assert.match(rendered, /^\[\$\(go-to-file\)\]\(command:localReview\.openCode\?\S+ "Codekontext im Editor öffnen"\)/u);
-  assert.equal(rendered.endsWith(message.text), true);
-  assert.deepEqual(references.resolve(handles(rendered)[0]), { threadId: thread.id, messageId: message.id });
-  assert.equal(references.render(thread, { ...message, author: 'human' }, 'javascript'), message.text);
+  const [action] = references.actions(thread, message, 'javascript');
+  assert.ok(action);
+  assert.equal(action.label, 'Codekontext');
+  assert.equal(action.description, thread.anchor.path);
+  assert.deepEqual(references.resolve(action.handle), { threadId: thread.id, messageId: message.id });
+  assert.equal(references.render(thread, message, 'javascript'), message.text);
+  const human = { ...message, author: 'human' as const };
+  assert.deepEqual(references.actions(thread, human, 'javascript'), []);
+  assert.equal(references.render(thread, human, 'javascript'), message.text);
 });
 
-test('adds a display-only fallback language without mutating durable review text', () => {
+test('uses display-only fallback languages for cards and actions without mutating durable text', () => {
   const references = new CodeReferences();
   const { thread, message } = fixture('Inspect this:\n```\nvalue();\n```', 'human');
   const before = JSON.stringify(thread);
   const rendered = references.render(thread, message, 'typescript');
-  assert.ok(rendered.startsWith('[$(go-to-file)]'));
-  assert.ok(rendered.includes('Inspect this:'));
+  const [action] = references.actions(thread, message, 'typescript');
+  assert.ok(action);
   assert.ok(rendered.includes('```typescript\nvalue();\n```'));
+  assert.equal(action.label, 'Code 1 · typescript');
   assert.equal(JSON.stringify(thread), before);
-  assert.deepEqual(references.resolve(handles(rendered)[0]), { threadId: thread.id, messageId: message.id, blockIndex: 0 });
+  assert.deepEqual(references.resolve(action.handle), { threadId: thread.id, messageId: message.id, blockIndex: 0 });
+  assert.equal(references.actions(thread, message, '')[0]?.label, 'Code 1 · Code');
 });
 
-test('repairs legacy declarations into one code box and preserves mixed block action indexes', () => {
+test('repairs legacy declarations into one card and preserves mixed block action indexes', () => {
   const references = new CodeReferences();
   const code = "import { setTimeout as delay } from 'node:timers/promises';\n\nexport async function withRetry(operation) { return operation(); }";
   const { thread, message } = fixture(`Implemented:\n\n${code}\n\nMore context.\n\n\`\`\`python\nprint('done')\n\`\`\``);
   const before = JSON.stringify(thread);
   const rendered = references.render(thread, message, 'javascript');
+  const actions = references.actions(thread, message, 'javascript');
   assert.ok(rendered.includes(`~~~javascript\n${code}\n~~~`));
   assert.ok(rendered.includes('More context.'));
+  assert.equal(rendered.includes('command:'), false);
   assert.equal(JSON.stringify(thread), before);
-  const actions = handles(rendered);
-  assert.match(rendered, /^\[\$\(go-to-file\) 1\]\(command:localReview\.openCode\?\S+ "Code 1 im Editor öffnen"\) · \[\$\(go-to-file\) 2\]\(command:localReview\.openCode\?\S+ "Code 2 im Editor öffnen"\)/u);
-  assert.deepEqual(actions.map((handle) => references.resolve(handle)?.blockIndex), [0, 1]);
+  assert.deepEqual(actions.map(action => action.label), ['Code 1 · javascript', 'Code 2 · python']);
+  assert.deepEqual(actions.map(action => references.resolve(action.handle)?.blockIndex), [0, 1]);
 });
 
-test('skips empty blocks, preserves original indexes and caps actions at twenty', () => {
+test('skips empty blocks, preserves original indexes and caps native actions at twenty', () => {
   const references = new CodeReferences();
   const nonempty = Array.from({ length: 23 }, (_, index) => `\`\`\`js\nvalue${index}();\n\`\`\``);
   const { thread, message } = fixture(['```\n```', '~~~\n \t\n~~~', ...nonempty].join('\n'));
-  const rendered = references.render(thread, message, 'typescript');
-  const generated = handles(rendered);
-  assert.equal(generated.length, 20);
-  assert.equal(references.resolve(generated[0])?.blockIndex, 2);
-  assert.equal(references.resolve(generated.at(-1))?.blockIndex, 21);
-  assert.equal(rendered.includes('Codekontext im Editor öffnen'), false);
+  const actions = references.actions(thread, message, 'typescript');
+  assert.equal(actions.length, 20);
+  assert.equal(actions[0]?.label, 'Code 3 · js');
+  assert.equal(references.resolve(actions[0]?.handle)?.blockIndex, 2);
+  assert.equal(references.resolve(actions.at(-1)?.handle)?.blockIndex, 21);
   const empty = fixture('```\n \t\n```');
-  assert.equal(handles(references.render(empty.thread, empty.message, 'js')).length, 0);
+  assert.deepEqual(references.actions(empty.thread, empty.message, 'js'), []);
 });
 
-test('prepends clickable actions before unclosed fences', () => {
+test('uses the first nonempty line for a bounded preview description', () => {
+  const references = new CodeReferences();
+  const firstLine = 'x'.repeat(200);
+  const { thread, message } = fixture(`\`\`\`js\n \t\n  ${firstLine}\nignored();\n\`\`\``);
+  assert.equal(references.actions(thread, message, 'javascript')[0]?.description, firstLine.slice(0, 160));
+});
+
+test('offers native actions for unclosed code without inserting body command links', () => {
   const references = new CodeReferences();
   const { thread, message } = fixture('Before\n```\nconst value = 1;');
   const rendered = references.render(thread, message, 'typescript');
-  assert.equal(rendered.startsWith('[$(go-to-file)](command:'), true);
-  assert.equal(rendered.indexOf('](command:') < rendered.indexOf('```typescript'), true);
-  assert.ok(rendered.includes('Before\n'));
+  const [action] = references.actions(thread, message, 'typescript');
+  assert.ok(action);
+  assert.ok(rendered.startsWith('Before\n'));
   assert.ok(rendered.includes('```typescript\nconst value = 1;\n```'));
-  assert.deepEqual(references.resolve(handles(rendered)[0]), { threadId: thread.id, messageId: message.id, blockIndex: 0 });
+  assert.equal(rendered.includes('command:'), false);
+  assert.deepEqual(references.resolve(action.handle), { threadId: thread.id, messageId: message.id, blockIndex: 0 });
 });
 
-test('original command links do not become extension-owned handles', () => {
+test('original model command links stay visible but never become extension-owned action handles', () => {
   const references = new CodeReferences();
   const attackerHandle = 'caller-constructed-handle';
   const malicious = `[Pretend](command:${openCodeCommand}?${encodeURIComponent(JSON.stringify([attackerHandle]))})`;
   const { thread, message } = fixture(`${malicious}\n\n\`\`\`js\nvalue();\n\`\`\``);
   const rendered = references.render(thread, message, 'javascript');
+  const actions = references.actions(thread, message, 'javascript');
   assert.equal(rendered.includes(malicious), true);
+  assert.equal((rendered.match(/command:localReview\.openCode/gu) ?? []).length, 1);
   assert.equal(references.resolve(attackerHandle), undefined);
-  assert.equal(references.resolve(handles(rendered)[0])?.blockIndex, 0);
+  assert.equal(actions.length, 1);
+  assert.equal(references.resolve(actions[0]?.handle)?.blockIndex, 0);
 });
 
 test('enables only generated card markup while preserving source and neutralizing model HTML', () => {

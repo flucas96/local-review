@@ -91,6 +91,14 @@ macOS Dictation is documented as the user's existing text-input method. No recor
 
 The revised 1440×1260 flow graphic uses neutral light surfaces, charcoal and restrained teal. Four small code/review scenes show the human-agent cycle: inspect changes, comment in context, discuss or change, then check and finish. It was rendered from SVG to PNG and visually reviewed at full and README-like widths for readable code, arrows and clipping. Explanatory transport details are collapsed in the accompanying guide.
 
+## 0.4.2 code action in the comment header
+
+The code-reference icon now uses the native comment-title toolbar on the author/timestamp row. No generated navigation link or action row is inserted into message text. One target opens directly; replies with several nonempty code blocks offer a bounded native picker with language and a short code preview. Cancelling it leaves the editor alone.
+
+The header command accepts only native comment objects bound by the extension, then uses opaque handles and the existing durable-message/source validation. Reply Markdown no longer grants any command trust. Strict TypeScript checking and all **142 automated tests pass**, including header-object identity, stale targets, multiple-block selection, cancellation and context-only replies.
+
+Version 0.4.2 was installed in the user's actual macOS VS Code and activated by reloading the playground. The stored retry reply showed the editor icon on Claude's author/timestamp row, with explanatory text immediately below and no body action row. Clicking the header icon opened the exact historical snippet as a syntax-colored read-only preview beside the discussion, preserving the thread and current source. The existing code card frame and inner spacing remained visible. Multiple-target selection and cancellation are covered by automated tests; a native multi-target picker walkthrough remains pending. No feedback was submitted.
+
 ## Verification still required
 
 - Repeat the relevant checks after future changes. Current 0.3.0 strict TypeScript checking and all 73 tests pass; this does not replace native extension-host or authenticated integration validation.
@@ -118,4 +126,4 @@ The revised 1440×1260 flow graphic uses neutral light surfaces, charcoal and re
 
 Open work is tracked in GitHub: [validation and live integration #1](https://github.com/flucas96/local-review/issues/1), [Marketplace publisher and listing #2](https://github.com/flucas96/local-review/issues/2), [large-backlog pagination #3](https://github.com/flucas96/local-review/issues/3), [daily-workflow usability #4](https://github.com/flucas96/local-review/issues/4), and [live modes, PR handoff and demo #5](https://github.com/flucas96/local-review/issues/5).
 
-The `0.4.1` bundle and strict TypeScript checking pass, as do all 138 automated tests. Packaging includes the extension icon, view SVG, author avatars and illustrated flow. Native code-action navigation, JavaScript hover, F12 and a colored snapshot preview were exercised in the macOS playground. A fresh authenticated reply with fenced code, the full Claude/PR walkthrough, publisher registration and Marketplace publication remain pending. Manual GitHub Actions workflows have not been run. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.
+The `0.4.2` bundle and strict TypeScript checking pass, as do all 142 automated tests. Packaging includes the extension icon, view SVG, author avatars and illustrated flow. Native code-action navigation, JavaScript hover, F12 and a colored snapshot preview were exercised in the macOS playground. A fresh authenticated reply with fenced code, the full Claude/PR walkthrough, publisher registration and Marketplace publication remain pending. Manual GitHub Actions workflows have not been run. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.

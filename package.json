@@ -2,7 +2,7 @@
   "name": "local-review",
   "displayName": "Local Review",
   "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "icon": "resources/icon.png",
   "galleryBanner": { "color": "#101B29", "theme": "dark" },
   "publisher": "local-review-dev",
@@ -54,6 +54,7 @@
       { "command": "localReview.addComment", "title": "Kommentar hinzufügen", "category": "Local Review", "icon": "$(comment-add)" },
       { "command": "localReview.openComposer", "title": "Feedback in Seitenansicht schreiben", "category": "Local Review", "icon": "$(open-preview)" },
       { "command": "localReview.openCode", "title": "Code im Editor öffnen", "category": "Local Review", "icon": "$(go-to-file)" },
+      { "command": "localReview.openCommentCode", "title": "Code im Editor öffnen", "category": "Local Review", "icon": "$(go-to-file)" },
       { "command": "localReview.submitInline", "title": "Senden", "category": "Local Review", "enablement": "!commentIsEmpty" },
       { "command": "localReview.cancelDraft", "title": "Entwurf verwerfen", "category": "Local Review", "icon": "$(close)" },
       { "command": "localReview.openChanges", "title": "Änderungen reviewen", "category": "Local Review", "icon": "$(git-compare)" },
@@ -81,6 +82,9 @@
       "comments/commentThread/context": [
         { "command": "localReview.submitInline", "when": "commentController == localReview", "group": "inline@1" }
       ],
+      "comments/comment/title": [
+        { "command": "localReview.openCommentCode", "when": "commentController == localReview && comment == localReview.code", "group": "inline@1" }
+      ],
       "comments/commentThread/title": [
         { "command": "localReview.cancelDraft", "when": "commentController == localReview && commentThreadIsEmpty", "group": "inline@1" },
         { "command": "localReview.composeReply", "when": "commentController == localReview && commentThread == localReview.open", "group": "navigation@1" },
@@ -89,6 +93,7 @@
       ],
       "commandPalette": [
         { "command": "localReview.openCode", "when": "false" },
+        { "command": "localReview.openCommentCode", "when": "false" },
         { "command": "localReview.submitInline", "when": "false" },
         { "command": "localReview.cancelDraft", "when": "false" },
         { "command": "localReview.composeReply", "when": "false" },

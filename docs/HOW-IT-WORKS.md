@@ -22,7 +22,7 @@ Markiere den Code oder klicke auf das **+** an der Zeile. Schreibe zum Beispiel 
 
 ## Antwort prüfen
 
-Der Status zeigt, ob dein Auftrag wartet, empfangen wurde, bearbeitet wird oder zur Prüfung bereitsteht. Claudes Antwort erscheint im ursprünglichen Kommentarverlauf. Mehrzeiliger Code gehört in einen eigenen farbigen Codeblock. Das kleine **Editor-Symbol** öffnet den Code im richtigen Editor.
+Der Status zeigt, ob dein Auftrag wartet, empfangen wurde, bearbeitet wird oder zur Prüfung bereitsteht. Claudes Antwort erscheint im ursprünglichen Kommentarverlauf. Mehrzeiliger Code gehört in einen eigenen farbigen Codeblock. Das kleine **Editor-Symbol in der Kopfzeile neben Claude** öffnet den Code im richtigen Editor. Bei mehreren Codeblöcken wählst du den gewünschten aus.
 
 Du kannst weiterfragen, eine weitere Änderung anfordern oder den Thread erledigen. **Eine Antwort von Claude erledigt den Thread nicht automatisch.**
 
@@ -64,6 +64,6 @@ Die [SVG-Grafik](media/local-review-flow.svg) zeigt den gemeinsamen Review-Zyklu
 
 Die daraus gerenderte [PNG-Version](media/local-review-flow.png) wird im README und Installationspaket verwendet, weil VS Codes Paketprüfung SVG-Bilder im README ablehnt.
 
-Stand: Version 0.4.1. Die Darstellung erklärt die implementierte Bedienung und ist kein Nachweis einer bereits vollständig geprüften Live-Sitzung. Den aktuellen Prüfstand dokumentiert [REVIEW.md](REVIEW.md).
+Stand: Version 0.4.2. Die Darstellung erklärt die implementierte Bedienung und ist kein Nachweis einer bereits vollständig geprüften Live-Sitzung. Den aktuellen Prüfstand dokumentiert [REVIEW.md](REVIEW.md).
 
 </details>
