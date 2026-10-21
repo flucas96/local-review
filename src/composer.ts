@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { parseComposerInput } from './composerIntent.js';
 import type { CodeAnchor, ReviewIntent } from './contracts.js';
 import { maximumIdentifierLength, maximumPathLength, maximumReviewTextLength } from './limits.js';
+import { webviewFontStyles } from './webviewStyles.js';
 
 /** Immutable context shown beside the code while a human writes feedback. */
 export interface ComposerRequest {
@@ -107,6 +108,7 @@ function readDraft(value: unknown): SavedDraft | undefined {
 export function createComposer(
   context: vscode.ExtensionContext,
   onSubmit: (submission: ComposerSubmission) => Promise<void>,
+  onOpenCode?: (request: ComposerRequest) => Promise<void>,
 ): ReviewComposer {
   const persisted = record(context.workspaceState.get<unknown>(storageKey));
   const candidates: unknown[] = persisted?.['version'] === 1 && Array.isArray(persisted['drafts']) ? persisted['drafts'] : [];
@@ -148,6 +150,7 @@ export function createComposer(
         contextCode: draft.anchor === undefined ? '' : draft.code,
         text: draft.text, intent: draft.intent, existingThread: draft.threadId !== undefined,
         busy: submitting.has(draft.id), focus,
+        canOpenCode: onOpenCode !== undefined && draft.anchor !== undefined,
       });
     }
   }
@@ -238,6 +241,18 @@ export function createComposer(
       return;
     }
     const existing = drafts.get(message['id']);
+    if (message['type'] === 'openCode') {
+      if (existing === undefined || existing.id !== currentId || existing.anchor === undefined || onOpenCode === undefined) return;
+      try {
+        await onOpenCode(existing);
+      } catch (error: unknown) {
+        void panel?.webview.postMessage({
+          type: 'codeError', id: existing.id,
+          text: error instanceof Error ? error.message : 'Der Code konnte nicht im Editor geöffnet werden.',
+        });
+      }
+      return;
+    }
     if (existing === undefined || submitting.has(existing.id)) return;
     if (message['type'] === 'discard') {
       drafts.delete(existing.id);
@@ -343,24 +358,25 @@ function composerHtml(): string {
 <html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
 <title>Review-Kommentar</title><style nonce="${nonce}">
+${webviewFontStyles}
 :root { --review-line: var(--vscode-widget-border, var(--vscode-panel-border, #80808045)); --review-accent: var(--vscode-localReview-selectionBorder, var(--vscode-focusBorder)); --review-tint: var(--vscode-localReview-selectionBackground, var(--vscode-textBlockQuote-background)); --review-surface: var(--vscode-editorWidget-background, var(--vscode-editor-background)); }
-* { box-sizing: border-box; } body { margin: 0; padding: 16px 14px; color: var(--vscode-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.5 var(--vscode-font-family); }
+* { box-sizing: border-box; } body { margin: 0; padding: 16px 14px; color: var(--vscode-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.5 var(--review-font-ui); }
 main { max-width: 620px; margin: auto; } .topbar { display: flex; align-items: center; gap: 9px; min-height: 32px; margin-bottom: 13px; } .brand { width: 28px; height: 28px; display: grid; place-items: center; flex-shrink: 0; border: 1px solid var(--review-accent); border-radius: 9px; background: var(--review-tint); } .brand svg { width: 16px; height: 16px; } .target { flex: 1; min-width: 0; } .eyebrow { margin: 0 0 1px; color: var(--vscode-descriptionForeground); font-size: 10px; font-weight: 500; } #path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; font-size: 12px; font-weight: 600; } #targetState { display: inline-flex; align-items: center; gap: 5px; color: var(--vscode-descriptionForeground); border: 1px solid var(--review-line); border-radius: 20px; padding: 2px 7px; font-size: 10px; white-space: nowrap; } #targetState::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--review-accent); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-details { border: 1px solid var(--review-line); border-radius: 8px; padding: 7px 10px; margin: 0 0 10px; background: var(--review-surface); } summary { cursor: pointer; color: var(--vscode-descriptionForeground); font-size: 11px; } .code-mark { margin: 0 5px 0 2px; color: var(--vscode-foreground); font: 11px var(--vscode-editor-font-family); } pre { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; max-height: 84px; overflow: auto; margin: 8px 0 1px; padding: 8px 9px; border: 1px solid var(--review-line); border-radius: 5px; background: var(--vscode-editor-background); font: 12px/1.55 var(--vscode-editor-font-family); } #context { margin: 8px 0 0; padding: 5px 7px; background: transparent; }
+.code-context { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 10px; } .code-context > details { flex: 1; min-width: 0; margin: 0; } details { border: 1px solid var(--review-line); border-radius: 8px; padding: 7px 10px; margin: 0 0 10px; background: var(--review-surface); } summary { cursor: pointer; color: var(--vscode-descriptionForeground); font-size: 11px; } .code-mark { margin: 0 5px 0 2px; color: var(--vscode-foreground); font: 11px var(--review-font-code); } pre { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; max-height: 84px; overflow: auto; margin: 8px 0 1px; padding: 8px 9px; border: 1px solid var(--review-line); border-radius: 5px; background: var(--vscode-editor-background); font: 12px/1.55 var(--review-font-code); } #context { margin: 8px 0 0; padding: 5px 7px; background: transparent; } #openCode { flex-shrink: 0; white-space: nowrap; margin: 2px 0; color: var(--vscode-textLink-foreground); background: transparent; } #openCode:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground); } #openCode[hidden] { display: none; }
 .selection { border: 1px solid var(--review-accent); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; background: var(--review-tint); font-size: 11px; } .selection p { margin: 0 0 5px; } .selection button { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); } .selection[hidden], details[hidden] { display: none; }
 .compose-card { border: 1px solid var(--review-line); border-radius: 11px; background: var(--review-surface); box-shadow: 0 3px 12px #00000012; overflow: hidden; } .compose-card:focus-within { border-color: var(--vscode-focusBorder); } .compose-toolbar { padding: 7px 8px 0; } .modes { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; border-radius: 7px; background: var(--vscode-editor-background); } button { font: inherit; font-size: 11px; cursor: pointer; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; min-height: 26px; } button:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
-.mode { color: var(--vscode-descriptionForeground); background: transparent; min-height: 26px; } .mode:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } .mode[aria-pressed="true"] { color: var(--vscode-foreground); background: var(--review-tint); border-color: var(--review-accent); font-weight: 600; } kbd { color: var(--vscode-descriptionForeground); font: 10px var(--vscode-editor-font-family); margin-left: 5px; }
+.mode { color: var(--vscode-descriptionForeground); background: transparent; min-height: 26px; } .mode:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } .mode[aria-pressed="true"] { color: var(--vscode-foreground); background: var(--review-tint); border-color: var(--review-accent); font-weight: 600; } kbd { color: var(--vscode-descriptionForeground); font: 10px var(--review-font-code); margin-left: 5px; }
 textarea { display: block; width: calc(100% - 16px); min-height: 90px; max-height: 180px; field-sizing: content; resize: vertical; border-radius: 5px; border: 1px solid transparent; color: var(--vscode-foreground); background: transparent; margin: 7px 8px 0; padding: 7px 5px; font: inherit; line-height: 1.6; } textarea::placeholder { color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground)); } textarea:disabled { opacity: .7; }
-.footer { display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; align-items: center; border-top: 1px solid var(--review-line); padding: 7px 9px; margin-top: 5px; } .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; max-width: 100%; margin-left: auto; } .muted { color: var(--vscode-descriptionForeground); font-size: 10px; } #saved { flex: 1 1 100px; } #send { display: inline-flex; align-items: center; gap: 6px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); border: 1px solid var(--vscode-contrastActiveBorder, transparent); border-radius: 6px; min-height: 28px; padding: 4px 10px; font-weight: 600; } #send::after { content: ''; width: 6px; height: 6px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); margin: 0 2px 0 0; } #send:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); } button:disabled { cursor: default; opacity: .5; } #discard { color: var(--vscode-descriptionForeground); background: transparent; padding: 3px 5px; } #discard:hover:not(:disabled) { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } #error { color: var(--vscode-errorForeground); margin: 8px 2px 0; font-size: 12px; } #error:empty { display: none; } #shortcut { white-space: nowrap; font: 10px var(--vscode-editor-font-family); padding: 1px 4px; border: 1px solid var(--review-line); border-radius: 4px; }
+.footer { display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; align-items: center; border-top: 1px solid var(--review-line); padding: 7px 9px; margin-top: 5px; } .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; max-width: 100%; margin-left: auto; } .muted { color: var(--vscode-descriptionForeground); font-size: 10px; } #saved { flex: 1 1 100px; } #send { display: inline-flex; align-items: center; gap: 6px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); border: 1px solid var(--vscode-contrastActiveBorder, transparent); border-radius: 6px; min-height: 28px; padding: 4px 10px; font-weight: 600; } #send::after { content: ''; width: 6px; height: 6px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); margin: 0 2px 0 0; } #send:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); } button:disabled { cursor: default; opacity: .5; } #discard { color: var(--vscode-descriptionForeground); background: transparent; padding: 3px 5px; } #discard:hover:not(:disabled) { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } #error { color: var(--vscode-errorForeground); margin: 8px 2px 0; font-size: 12px; } #error:empty { display: none; } #shortcut { white-space: nowrap; font: 10px var(--review-font-code); padding: 1px 4px; border: 1px solid var(--review-line); border-radius: 4px; }
 .vscode-high-contrast .compose-card, .vscode-high-contrast-light .compose-card, .vscode-high-contrast details, .vscode-high-contrast-light details { border-color: var(--vscode-contrastBorder); box-shadow: none; } .vscode-high-contrast .mode[aria-pressed="true"], .vscode-high-contrast-light .mode[aria-pressed="true"] { border-color: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder)); } .vscode-high-contrast textarea, .vscode-high-contrast-light textarea { border-color: var(--vscode-input-border, var(--vscode-contrastBorder)); }
 @media (max-width: 380px) { body { padding: 12px 10px; } .topbar { gap: 7px; } .brand { width: 25px; height: 25px; } .footer { gap: 6px; } .actions { gap: 4px; } kbd { display: none; } #targetState { font-size: 9px; padding: 2px 5px; } }
 </style></head><body><main>
 <header class="topbar"><span class="brand" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l-3 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7z"/><path d="M10 8l-2 2 2 2m4-4l2 2-2 2"/></svg></span><div class="target"><p class="eyebrow">Local Review</p><p id="path"></p></div><span id="targetState" role="status">Auswahl folgt</span></header><h1 id="title" class="sr-only">Review-Kommentar</h1>
 <aside id="selection" class="selection" hidden aria-live="polite"><p><strong>Neue Auswahl:</strong> <span id="selectionPath"></span></p><p class="muted">Dein aktueller Entwurf bleibt an seinem Code. Du kannst ihn später fortsetzen.</p><button type="button" id="takeSelection">Neue Auswahl kommentieren</button></aside>
-<details><summary><span class="code-mark" aria-hidden="true">&lt;/&gt;</span>Ausgewählten Code ansehen</summary><pre id="code"></pre>
+<div class="code-context"><details><summary><span class="code-mark" aria-hidden="true">&lt;/&gt;</span>Ausgewählten Code ansehen</summary><pre id="code"></pre>
 <details id="context" hidden><summary>Umgebender Kontext · gespeichert</summary><pre id="contextCode"></pre></details>
-</details><section class="compose-card" aria-label="Feedback an Claude"><div class="compose-toolbar"><div class="modes" role="group" aria-label="Review-Modus">
+</details><button type="button" id="openCode" hidden title="Ausgewählten Code im Editor öffnen">Im Editor öffnen</button></div><section class="compose-card" aria-label="Feedback an Claude"><div class="compose-toolbar"><div class="modes" role="group" aria-label="Review-Modus">
 <button type="button" class="mode" data-mode="ask" aria-pressed="true">Fragen <kbd>/a</kbd></button>
 <button type="button" class="mode" data-mode="implement" aria-pressed="false">Umsetzen <kbd>/i</kbd></button>
 <button type="button" class="mode" data-mode="summarize" aria-pressed="false">Zusammenfassen <kbd>/r</kbd></button></div></div>
@@ -374,6 +390,7 @@ const vscode = acquireVsCodeApi();
 const parseInput = ${parseComposerInput.toString()};
 const input = document.getElementById('feedback');
 const send = document.getElementById('send');
+const openCode = document.getElementById('openCode');
 const error = document.getElementById('error');
 const saved = document.getElementById('saved');
 const buttons = [...document.querySelectorAll('[data-mode]')];
@@ -399,6 +416,8 @@ function paint() {
   document.getElementById('discard').disabled = busy || sent || changingSelection || !active;
   document.getElementById('selection').hidden = !pendingSelection;
   document.getElementById('takeSelection').disabled = busy || changingSelection;
+  openCode.hidden = !active || !active.canOpenCode;
+  openCode.disabled = !active || !active.canOpenCode || changingSelection;
 }
 function changed() {
   if (!active || busy || sent || changingSelection) return;
@@ -421,6 +440,11 @@ function considerSelection() {
   if (pendingSelection && !busy && (sent || !input.value.trim())) takeSelection(false);
 }
 document.getElementById('takeSelection').addEventListener('click', () => takeSelection(true));
+openCode.addEventListener('click', () => {
+  if (!active || openCode.disabled) return;
+  error.textContent = '';
+  vscode.postMessage({ type: 'openCode', id: active.id });
+});
 input.addEventListener('input', () => {
   const result = parseInput(input.value, selectedIntent);
   if (result.removedCharacters) {
@@ -492,9 +516,11 @@ window.addEventListener('message', event => {
     if (message.type === 'saved' && message.revision === revision) saved.textContent = 'Entwurf lokal gespeichert';
     if (message.type === 'busy') { busy = message.busy; paint(); considerSelection(); }
     if (message.type === 'error') { busy = false; discarding = false; error.textContent = message.text; paint(); input.focus(); }
+    if (message.type === 'codeError') { error.textContent = message.text; }
     if (message.type === 'submitted') {
       sent = true;
       busy = false;
+      active.canOpenCode = false;
       input.value = '';
       saved.textContent = 'Gesendet · Neue Auswahl markieren';
       document.getElementById('title').textContent = 'Feedback gesendet';

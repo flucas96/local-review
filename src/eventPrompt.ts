@@ -1,7 +1,7 @@
 import type { ReviewEvent, ReviewThread } from './contracts.js';
 
 /** Shared Markdown contract for answers rendered in native review comments. */
-export const reviewReplyInstructions = 'Write the reply text as Markdown. Put multi-line code in fenced code blocks with a language identifier, such as javascript, typescript, python, or diff. Put the opening fence, each code line, and the closing fence on separate lines; preserve indentation and actual newlines. Use inline backticks for identifiers and short code expressions. Keep explanatory prose outside code fences. Do not double-escape newlines or Markdown.';
+export const reviewReplyInstructions = 'Write the reply text as Markdown. Put code declarations, implementations and examples in fenced code blocks with a language identifier, such as javascript, typescript, python, or diff. This includes import statements and functions that happen to fit on one line. Put the opening fence, each logical code line, and the closing fence on separate lines; preserve indentation and actual newlines. Use inline backticks only for identifiers and short code expressions within prose. Keep explanatory prose outside code fences. Do not double-escape newlines or Markdown.';
 
 /** Instructions applied to every authenticated human review event. */
 export const reviewInstructions = `You receive authenticated code-review feedback from the human in VS Code.

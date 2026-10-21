@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { capturedCodeContext, hashDocumentText, locateCodeAnchor, type AnchorLocation } from './anchors.js';
 import { createComposer, type ComposerRequest, type ComposerSubmission } from './composer.js';
 import { parseComposerInput } from './composerIntent.js';
+import { createCodeNavigation } from './codeNavigation.js';
 import { normalizeInlineReply } from './gutter.js';
 import type { CodeAnchor, ReviewIntent, ReviewMessage, ReviewStore, ReviewThread } from './contracts';
 import { getHeadRevision, isWorkspaceRelativePath, listChangedFiles, readGitBase } from './git';
@@ -109,10 +110,10 @@ function lineRange(document: vscode.TextDocument, range: vscode.Range): vscode.R
   return new vscode.Range(valid.start.line, 0, lastLine, document.lineAt(lastLine).text.length);
 }
 
-/** Render untrusted review text without allowing executable Markdown links. */
-function nativeComment(message: ReviewMessage, author: vscode.CommentAuthorInformation): vscode.Comment {
+/** Render review text while allowing only the host's validated code-navigation actions. */
+function nativeComment(message: ReviewMessage, author: vscode.CommentAuthorInformation, body: vscode.MarkdownString): vscode.Comment {
   return {
-    body: new vscode.MarkdownString(message.text),
+    body,
     author,
     mode: vscode.CommentMode.Preview,
     timestamp: new Date(message.createdAt),
@@ -194,6 +195,8 @@ export async function createReviewController(
   const tree = new ReviewTree(store);
   const view = vscode.window.createTreeView('localReview.threads', { treeDataProvider: tree, showCollapseAll: false });
   const disposables: vscode.Disposable[] = [controller, tree, view];
+  const codeNavigation = await createCodeNavigation(store);
+  disposables.push(codeNavigation);
   const nativeDrafts = new Set<vscode.CommentThread>();
   const inlineSubmissions = new SubmissionGate<vscode.CommentThread>();
   let disposed = false;
@@ -239,6 +242,8 @@ export async function createReviewController(
     await syncPending;
     const native = bindings.get(thread.id)?.native;
     if (native !== undefined) native.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+  }, async (request) => {
+    if (request.anchor !== undefined) await codeNavigation.openAnchor(request.anchor);
   });
   disposables.push(composer);
 
@@ -343,7 +348,7 @@ export async function createReviewController(
 
   /** Copy durable status into the native comment controls. */
   function updateNative(thread: ReviewThread, native: vscode.CommentThread): void {
-    native.comments = thread.messages.map((message) => nativeComment(message, authors[message.author]));
+    native.comments = thread.messages.map((message) => nativeComment(message, authors[message.author], codeNavigation.markdown(thread, message)));
     native.contextValue = thread.resolved ? 'localReview.resolved' : 'localReview.open';
     native.state = thread.resolved ? vscode.CommentThreadState.Resolved : vscode.CommentThreadState.Unresolved;
     native.canReply = thread.resolved ? false : authors.human;

@@ -182,11 +182,139 @@ export class FakePanel {
   }
 }
 
-export const ViewColumn = { Beside: -2 } as const;
+/** URI values needed by real document navigation without accessing the filesystem. */
+export class Uri {
+  private constructor(
+    readonly scheme: string,
+    readonly path: string,
+    readonly query = '',
+    readonly authority = '',
+    readonly fragment = '',
+  ) {}
+
+  /** Create a project file resource without interpreting path characters as URI syntax. */
+  static file(path: string): Uri { return new Uri('file', path); }
+
+  /** Create a readonly preview resource from explicit components. */
+  static from(components: { readonly scheme: string; readonly path?: string; readonly query?: string; readonly authority?: string; readonly fragment?: string }): Uri {
+    return new Uri(components.scheme, components.path ?? '', components.query, components.authority, components.fragment);
+  }
+
+  /** Retain a consistent document identity across document-provider registration. */
+  toString(): string {
+    return `${this.scheme}://${this.authority}${this.path}${this.query === '' ? '' : `?${this.query}`}${this.fragment === '' ? '' : `#${this.fragment}`}`;
+  }
+
+  /** Expose the local path only for file-oriented test assertions. */
+  get fsPath(): string { return this.path; }
+}
+
+/** Preserve the actual editor range selected by production content matching. */
+export class Range {
+  readonly start: { readonly line: number; readonly character: number };
+  readonly end: { readonly line: number; readonly character: number };
+
+  constructor(startLine: number, startCharacter: number, endLine: number, endCharacter: number) {
+    this.start = { line: startLine, character: startCharacter };
+    this.end = { line: endLine, character: endCharacter };
+  }
+}
+
+/** Carry rendered Markdown and its command trust boundary through real navigation. */
+export class MarkdownString {
+  isTrusted: boolean | { readonly enabledCommands: readonly string[] } | undefined;
+
+  constructor(readonly value = '') {}
+}
+
+/** In-memory document preserving unsaved source separately from immutable previews. */
+export class FakeTextDocument {
+  isDirty = false;
+
+  constructor(readonly uri: Uri, public text: string, public languageId = 'plaintext', readonly isReadonly = false) {}
+
+  /** Return the current in-memory source, including unsaved editor changes. */
+  getText(): string { return this.text; }
+
+  /** Clamp the production selection to real line lengths as the editor would. */
+  validateRange(range: Range): Range {
+    const lines = this.text.replaceAll('\r\n', '\n').split('\n');
+    const startLine = Math.max(0, Math.min(range.start.line, lines.length - 1));
+    const endLine = Math.max(startLine, Math.min(range.end.line, lines.length - 1));
+    return new Range(startLine, Math.min(range.start.character, lines[startLine]?.length ?? 0), endLine, Math.min(range.end.character, lines[endLine]?.length ?? 0));
+  }
+}
+
+interface FakeTextEditor {
+  readonly document: FakeTextDocument;
+  readonly viewColumn: number;
+}
+
+interface FakeContentProvider {
+  provideTextDocumentContent(uri: Uri): string | PromiseLike<string>;
+}
+
+/** Exercise real navigator provider registration and cached in-memory documents. */
+export const workspace = {
+  textDocuments: [] as FakeTextDocument[],
+  providers: new Map<string, FakeContentProvider>(),
+  beforeOpen: undefined as (() => Promise<void>) | undefined,
+
+  /** Return unsaved documents first, or obtain exact text from the registered readonly provider. */
+  async openTextDocument(uri: Uri): Promise<FakeTextDocument> {
+    await this.beforeOpen?.();
+    const existing = this.textDocuments.find((document) => document.uri.toString() === uri.toString());
+    if (existing !== undefined) return existing;
+    const provider = this.providers.get(uri.scheme);
+    if (provider === undefined) throw new Error(`No document or content provider for ${uri.toString()}`);
+    const document = new FakeTextDocument(uri, await provider.provideTextDocumentContent(uri), 'plaintext', true);
+    this.textDocuments.push(document);
+    return document;
+  },
+
+  /** Keep provider lifecycle observable when the extension is recreated. */
+  registerTextDocumentContentProvider(scheme: string, provider: FakeContentProvider): vscode.Disposable {
+    this.providers.set(scheme, provider);
+    return { dispose: (): void => { if (this.providers.get(scheme) === provider) this.providers.delete(scheme); } };
+  },
+};
+
+/** Invoke registered production commands with their original asynchronous return values. */
+export const commands = {
+  handlers: new Map<string, (...arguments_: unknown[]) => unknown>(),
+
+  /** Register the real command handler without wrapping or changing its promise. */
+  registerCommand(id: string, handler: (...arguments_: unknown[]) => unknown): vscode.Disposable {
+    this.handlers.set(id, handler);
+    return { dispose: (): void => { if (this.handlers.get(id) === handler) this.handlers.delete(id); } };
+  },
+
+  /** Await all navigation work returned by the real command handler. */
+  async executeCommand<T = unknown>(id: string, ...arguments_: unknown[]): Promise<T> {
+    const handler = this.handlers.get(id);
+    if (handler === undefined) throw new Error(`No registered command: ${id}`);
+    return await handler(...arguments_) as T;
+  },
+};
+
+/** Simulate installed language IDs while letting production code choose aliases. */
+export const languages = {
+  async getLanguages(): Promise<string[]> { return ['plaintext', 'javascript', 'typescript', 'python']; },
+  async setTextDocumentLanguage(document: FakeTextDocument, languageId: string): Promise<FakeTextDocument> {
+    document.languageId = languageId;
+    return document;
+  },
+};
+
+export const ViewColumn = { Beside: -2, One: 1 } as const;
 export const window = {
   panels: [] as FakePanel[],
   errors: [] as string[],
   information: [] as string[],
+  visibleTextEditors: [] as FakeTextEditor[],
+  shownDocuments: [] as { readonly document: FakeTextDocument; readonly options: vscode.TextDocumentShowOptions | undefined }[],
+  statusMessages: [] as string[],
+  beforeShow: undefined as (() => Promise<void>) | undefined,
   createWebviewPanel(): FakePanel {
     const panel = new FakePanel();
     this.panels.push(panel);
@@ -194,6 +322,22 @@ export const window = {
   },
   async showErrorMessage(message: string): Promise<void> { this.errors.push(message); },
   async showInformationMessage(message: string): Promise<void> { this.information.push(message); },
+
+  /** Record only completed reveals so command completion can be tested accurately. */
+  async showTextDocument(document: FakeTextDocument, options?: vscode.TextDocumentShowOptions): Promise<FakeTextEditor> {
+    await this.beforeShow?.();
+    this.shownDocuments.push({ document, options });
+    const editor = this.visibleTextEditors.find((candidate) => candidate.document.uri.toString() === document.uri.toString())
+      ?? { document, viewColumn: options?.viewColumn ?? ViewColumn.One };
+    if (!this.visibleTextEditors.includes(editor)) this.visibleTextEditors.push(editor);
+    return editor;
+  },
+
+  /** Retain the user-visible explanation for standalone code proposals. */
+  setStatusBarMessage(message: string): vscode.Disposable {
+    this.statusMessages.push(message);
+    return { dispose(): void {} };
+  },
 };
 
 /** Workspace storage with actual ordered async updates and snapshot inspection. */
@@ -227,6 +371,18 @@ export function resetFakeWindow(): void {
   window.panels.length = 0;
   window.errors.length = 0;
   window.information.length = 0;
+  window.visibleTextEditors.length = 0;
+  window.shownDocuments.length = 0;
+  window.statusMessages.length = 0;
+  window.beforeShow = undefined;
+}
+
+/** Clear only editor navigation state after its production providers are disposed. */
+export function resetFakeEditor(): void {
+  workspace.textDocuments.length = 0;
+  workspace.providers.clear();
+  workspace.beforeOpen = undefined;
+  commands.handlers.clear();
 }
 
 /** Drain host messages and ordered persistence microtasks without wall-clock sleeps. */

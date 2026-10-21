@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0
+
+- Display clearly recognized, unfenced JavaScript/TypeScript declarations in a code box, including existing replies; keep original stored text and explanatory prose intact.
+- Accept uppercase `/A`, `/I` and `/R` shortcuts as well as lowercase ones.
+- Use clear system UI and monospace fonts in extension-owned panels; avoid inheriting novelty fonts.
+- Add an illustrated feedback flow and explain local long polling, automatic hook delivery, MCP replies and the separate GitHub handoff.
+- Give unlabeled fenced code the review file's language for native VS Code syntax coloring, without changing stored replies.
+- Add **Im Editor öffnen** actions to reply code blocks and the optional composer's selected code.
+- Open confirmed, uniquely matching current project code in its existing editor, retaining the chat and its draft. Native hover, Cmd/Ctrl-click and F12 then use the installed language support.
+- Show proposed, changed or ambiguous code in a read-only syntax-colored preview instead of guessing a source location. Project semantics are limited there; native Markdown code blocks remain display-only.
+- Validate generated code links through opaque session handles and re-read durable review data on every click. Reopen saved review snippets after a window reload.
+
 ## 0.3.1
 
 - Add distinct human and Claude avatars to native conversations, including the identity beside inline replies.

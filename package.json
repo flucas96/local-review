@@ -2,7 +2,7 @@
   "name": "local-review",
   "displayName": "Local Review",
   "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "icon": "resources/icon.png",
   "galleryBanner": { "color": "#101B29", "theme": "dark" },
   "publisher": "local-review-dev",
@@ -53,6 +53,7 @@
       { "command": "localReview.startClaude", "title": "Mit Claude verbinden", "category": "Local Review", "icon": "$(plug)" },
       { "command": "localReview.addComment", "title": "Kommentar hinzufügen", "category": "Local Review", "icon": "$(comment-add)" },
       { "command": "localReview.openComposer", "title": "Feedback in Seitenansicht schreiben", "category": "Local Review", "icon": "$(open-preview)" },
+      { "command": "localReview.openCode", "title": "Code im Editor öffnen", "category": "Local Review", "icon": "$(go-to-file)" },
       { "command": "localReview.submitInline", "title": "Senden", "category": "Local Review", "enablement": "!commentIsEmpty" },
       { "command": "localReview.cancelDraft", "title": "Entwurf verwerfen", "category": "Local Review", "icon": "$(close)" },
       { "command": "localReview.openChanges", "title": "Änderungen reviewen", "category": "Local Review", "icon": "$(git-compare)" },
@@ -87,6 +88,7 @@
         { "command": "localReview.reopen", "when": "commentController == localReview && commentThread == localReview.resolved", "group": "inline@1" }
       ],
       "commandPalette": [
+        { "command": "localReview.openCode", "when": "false" },
         { "command": "localReview.submitInline", "when": "false" },
         { "command": "localReview.cancelDraft", "when": "false" },
         { "command": "localReview.composeReply", "when": "false" },

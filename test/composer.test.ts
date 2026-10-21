@@ -26,9 +26,10 @@ function request(id: string, overrides: Partial<ComposerRequest> = {}): Composer
 async function openComposer(
   initial = request('first'),
   submit: (submission: ComposerSubmission) => Promise<void> = async () => undefined,
+  openCode?: (request: ComposerRequest) => Promise<void>,
 ): Promise<{ readonly composer: ReviewComposer; readonly panel: FakePanel; readonly browser: FakeBrowser; readonly storage: FakeMemento }> {
   const storage = new FakeMemento();
-  const composer = createComposer(extensionContext(storage), submit);
+  const composer = createComposer(extensionContext(storage), submit, openCode);
   composers.push(composer);
   await composer.open(initial);
   const panel = window.panels.at(-1);
@@ -199,4 +200,111 @@ test('closing invalidates pending selections and does not let delayed messages c
   await settle();
   assert.equal(composer.isOpen(), false);
   assert.equal(window.panels.length, 1);
+});
+
+test('opening code uses stored immutable context and preserves typed feedback without sending or focus changes', async () => {
+  const opened: ComposerRequest[] = [];
+  const submitted: ComposerSubmission[] = [];
+  const initial = request('first');
+  const { composer, panel, browser, storage } = await openComposer(initial,
+    async (submission) => { submitted.push(submission); }, async (target) => { opened.push(target); });
+  browser.type('Why this implementation?');
+  await settle();
+  const initialFocus = browser.element('feedback').focusCount;
+  const initialReveals = panel.revealCalls.length;
+  const targets: (ComposerRequest | undefined)[] = [];
+  composer.onDidChangeTarget((target) => targets.push(target));
+  assert.equal(browser.element('openCode').hidden, false);
+  browser.element('openCode').fire('click');
+  await settle();
+
+  assert.equal(opened.length, 1);
+  assert.deepEqual(opened[0]?.anchor, initial.anchor);
+  assert.equal(opened[0]?.code, initial.code);
+  assert.equal(opened[0]?.text, 'Why this implementation?');
+  assert.equal(browser.element('feedback').value, 'Why this implementation?');
+  assert.equal(browser.element('path').textContent, 'first.ts:4');
+  assert.equal(browser.element('feedback').focusCount, initialFocus);
+  assert.equal(panel.revealCalls.length, initialReveals);
+  assert.equal(targets.length, 0);
+  assert.equal(submitted.length, 0);
+  assert.equal(savedDrafts(storage).find((draft) => draft.id === 'first')?.text, 'Why this implementation?');
+});
+
+test('opening code ignores stale draft ids and browser-supplied paths or code', async () => {
+  const opened: ComposerRequest[] = [];
+  const { composer, panel, browser } = await openComposer(request('first'), undefined,
+    async (target) => { opened.push(target); });
+  browser.type('Keep this draft.');
+  await settle();
+  await composer.open(request('second'));
+  await settle();
+  panel.receive({ type: 'openCode', id: 'first' });
+  panel.receive({
+    type: 'openCode', id: 'second', path: '../../secret.ts', code: 'malicious();',
+    anchor: { path: '../../secret.ts', selectedText: 'malicious();' },
+  });
+  await settle();
+
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0]?.path, 'second.ts');
+  assert.equal(opened[0]?.anchor?.selectedText, 'second();');
+  assert.equal(opened[0]?.code, 'before();\nsecond();\nafter();');
+  assert.equal(browser.element('path').textContent, 'second.ts:4');
+});
+
+test('failed code navigation reports inline without losing text or moving focus back to the composer', async () => {
+  const { panel, browser, storage } = await openComposer(request('first'), undefined,
+    async () => { throw new Error('The saved file is unavailable.'); });
+  browser.type('Please keep this question.');
+  await settle();
+  const initialFocus = browser.element('feedback').focusCount;
+  const initialReveals = panel.revealCalls.length;
+  browser.element('openCode').fire('click');
+  await settle();
+
+  assert.equal(browser.element('error').textContent, 'The saved file is unavailable.');
+  assert.equal(browser.element('feedback').value, 'Please keep this question.');
+  assert.equal(browser.element('feedback').disabled, false);
+  assert.equal(browser.element('feedback').focusCount, initialFocus);
+  assert.equal(panel.revealCalls.length, initialReveals);
+  assert.equal(savedDrafts(storage).find((draft) => draft.id === 'first')?.text, 'Please keep this question.');
+});
+
+test('code navigation is unavailable without a callback or captured anchor', async () => {
+  const withoutCallback = await openComposer();
+  assert.equal(withoutCallback.browser.element('openCode').hidden, true);
+  assert.equal(withoutCallback.browser.element('openCode').disabled, true);
+
+  let calls = 0;
+  const initial = request('second');
+  const { anchor: _anchor, ...withoutAnchor } = initial;
+  const { browser, panel } = await openComposer(withoutAnchor, undefined, async () => { calls += 1; });
+  assert.equal(browser.element('openCode').hidden, true);
+  assert.equal(browser.element('openCode').disabled, true);
+  panel.receive({ type: 'openCode', id: 'second' });
+  await settle();
+  assert.equal(calls, 0);
+});
+
+test('code navigation remains available during a pending send without changing submission state', async () => {
+  let finish: (() => void) | undefined;
+  const pending = new Promise<void>((resolve) => { finish = resolve; });
+  const opened: ComposerRequest[] = [];
+  const { browser } = await openComposer(request('first'), async () => pending,
+    async (target) => { opened.push(target); });
+  browser.type('Explain this.');
+  browser.element('send').fire('click');
+  await settle();
+  assert.equal(browser.element('feedback').disabled, true);
+  assert.equal(browser.element('openCode').disabled, false);
+  browser.element('openCode').fire('click');
+  await settle();
+  assert.equal(opened.length, 1);
+  assert.equal(browser.element('feedback').disabled, true);
+  assert.equal(browser.element('feedback').value, 'Explain this.');
+  assert.ok(finish);
+  finish();
+  await settle();
+  assert.equal(browser.element('openCode').hidden, true);
 });

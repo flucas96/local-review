@@ -28,6 +28,8 @@ Write directly beside the changed code: click the gutter **+**, enter `/a`, `/i`
 
 Prefer a separate input? **Local Review: Feedback in Seitenansicht schreiben** opens a compact composer with live mode buttons, saved drafts and selection following. Keep it open and select the next code block; an empty draft follows without moving focus. Written drafts stay pinned and offer an explicit switch. The selected lines remain outlined when you click into the composer. Closing it keeps drafts for **Local Review: Entwurf fortsetzen**. Native inline draft recovery remains managed by VS Code.
 
+Code blocks use VS Code's syntax colors; missing fence languages inherit the review file's language for display. Choose **Im Editor öffnen** on a reply's code block or beside the composer's code preview to use the real editor. A confirmed unique match opens the current project file, where hover, Cmd/Ctrl-click and F12 work through your installed language support. Proposed or ambiguous code opens as a clearly labeled, read-only code preview with limited project navigation. The chat and draft stay in place. Inline Markdown blocks remain display-only. Clearly recognized, standalone JavaScript/TypeScript imports and exported functions receive display-only code boxes even in older replies; ambiguous text remains prose.
+
 ## Carry the conversation into your PR
 
 Use the **An GitHub-PR übergeben** action in the Review toolbar. Local Review finds the current branch's open PR and prepares an editable preview of available summaries and unresolved questions. Select the content, inspect the exact PR and text, then explicitly publish it. Later handoffs update your managed review comment instead of adding a duplicate.
@@ -44,7 +46,9 @@ Requires **VS Code 1.100+**, **Node.js 22+**, **Git**, and an installed, authent
 
 ## How the connection works
 
-The default connection combines Claude hooks with MCP. A background hook watches a private queue on your computer and wakes Claude when feedback arrives. MCP tools acknowledge receipt and return replies to VS Code. Feedback does not interrupt a tool already running.
+![Local Review feedback loop: comment, local delivery, Claude, reply in the same thread](docs/media/local-review-flow.png)
+
+The default connection combines Claude hooks with MCP. A local background helper waits with a long-polling request; saved feedback completes it immediately and the hook wakes Claude. The LLM does not repeatedly check for comments. MCP tools acknowledge receipt and return replies to VS Code. Feedback does not interrupt a tool already running. [Visual walkthrough and technical details →](docs/HOW-IT-WORKS.md)
 
 Connection files and submitted threads live in VS Code's workspace storage. The extension passes configuration to the session it launches, without editing your repository's `.claude` files or `.mcp.json`. Claude's existing tool permissions still apply; `/a` and `/r` are instructions to avoid edits, not a separate permission sandbox.
 
@@ -52,7 +56,7 @@ Code context is captured when you submit feedback. If an old location cannot be 
 
 ## Preview status
 
-This is an early preview. The **0.3.1 bundle and strict TypeScript check pass; all 73 automated tests pass**. Native conversations have distinct avatars and compact status headings; the optional side composer uses rounded surfaces and quiet mint accents. VS Code controls the native comment layout. A complete authenticated Claude and GitHub PR walkthrough remains pending. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
+This is an early preview. Native conversations have distinct avatars and compact status headings; the optional side composer uses rounded surfaces and quiet mint accents. Code actions connect the chat to the native editor. VS Code controls the native comment layout. Current checks and remaining authenticated integration work are recorded in the [review findings](docs/REVIEW.md). The demo uses simulated responses.
 
 The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks missing Claude-to-thread navigation, unread replies, delivery readiness, and support for launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
 

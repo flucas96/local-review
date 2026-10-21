@@ -7,6 +7,7 @@ Analyze the project structure before making changes. Keep the native VS Code rev
 - Use strict TypeScript with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`.
 - Reuse existing helpers and keep persisted review data independent of the transport.
 - Add doc comments for exported behavior. Do not number implementation steps in comments.
+- Use clear system sans-serif fonts for extension UI and monospace fonts for code. Never use Comic Sans or handwritten novelty fonts.
 - Treat transport data as unknown until validated.
 - Ask before running lint, type checks, or tests in approval-gated sessions. Builds and packaging are separate operations.
 
@@ -22,6 +23,8 @@ Analyze the project structure before making changes. Keep the native VS Code rev
 - Preserve immutable event IDs and original code context across edits and restarts.
 - A transport connection is not a delivery acknowledgment.
 - Do not silently attach uncertain comments to another line of code.
+- Code actions open current project code only after a confirmed content match. Proposed, missing or ambiguous snippets stay read-only; Markdown code blocks do not claim native editor semantics.
+- Generated editor links use opaque session handles and a single allowlisted command. Model-provided paths or command arguments cannot select navigation targets.
 - Keep connection credentials outside the repository and preserve existing Claude configuration.
 
 ## Commands
