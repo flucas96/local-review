@@ -303,8 +303,8 @@ function groupEnd(tokens: readonly CodeToken[], start: number): number | undefin
   return undefined;
 }
 
-function declarationEnd(tokens: readonly CodeToken[], start: number): number | undefined {
-  if (tokens[start]?.value === 'import') return importEnd(tokens, start);
+/** Locate a named exported function's body only after its parameter delimiters are balanced. */
+function functionBodyStart(tokens: readonly CodeToken[], start: number): number | undefined {
   if (tokens[start]?.value !== 'export') return undefined;
   let index = start + 1;
   if (tokens[index]?.value === 'default') index += 1;
@@ -314,15 +314,50 @@ function declarationEnd(tokens: readonly CodeToken[], start: number): number | u
   if (tokens[index]?.value === '*') index += 1;
   if (!identifier(tokens[index]) || tokens[index + 1]?.value !== '(') return undefined;
   const parametersEnd = groupEnd(tokens, index + 1);
-  if (parametersEnd === undefined || tokens[parametersEnd]?.value !== '{') return undefined;
-  const bodyEnd = groupEnd(tokens, parametersEnd);
+  return parametersEnd !== undefined && tokens[parametersEnd]?.value === '{' ? parametersEnd : undefined;
+}
+
+function declarationEnd(tokens: readonly CodeToken[], start: number): number | undefined {
+  if (tokens[start]?.value === 'import') return importEnd(tokens, start);
+  const bodyStart = functionBodyStart(tokens, start);
+  if (bodyStart === undefined) return undefined;
+  const bodyEnd = groupEnd(tokens, bodyStart);
   if (bodyEnd === undefined) return undefined;
   return tokens[bodyEnd]?.value === ';' ? bodyEnd + 1 : bodyEnd;
+}
+
+/** Accept one complete JSDoc comment directly attached to the following declaration. */
+function hasAttachedDocumentation(text: string, firstToken: CodeToken | undefined): boolean {
+  if (!text.trimStart().startsWith('/**')) return true;
+  if (firstToken === undefined) return false;
+  const closing = text.indexOf('*/');
+  if (closing < 0 || closing + 2 > firstToken.start) return false;
+  const gap = text.slice(closing + 2, firstToken.start);
+  return gap.trim().length === 0 && !/\r?\n[\t ]*\r?\n/u.test(gap);
+}
+
+/** Keep an intentional signature excerpt separate from subsequent explanatory prose. */
+function isolatedSignatureEnd(text: string, tokens: readonly CodeToken[]): number | undefined {
+  const bodyStart = functionBodyStart(tokens, 0);
+  const openingEnd = bodyStart === undefined ? undefined : tokens[bodyStart]?.end;
+  if (openingEnd === undefined) return undefined;
+  const rest = text.slice(openingEnd);
+  if (/^[\t \r\n]*$/u.test(rest)) return openingEnd + (/^[\t ]*/u.exec(rest)?.[0].length ?? 0);
+  const paragraphBreak = /^[\t ]*\r?\n[\t ]*\r?\n/u.exec(rest)?.[0];
+  if (paragraphBreak === undefined) return undefined;
+  const following = rest.slice(paragraphBreak.length).trimStart();
+  const firstWord = /^([\p{L}_$][\p{L}\p{N}_$]*)[\t ]+[\p{L}_$]/u.exec(following)?.[1];
+  if (firstWord === undefined
+    || /^(?:return|throw|await|yield|new|typeof|void|delete|const|let|var|if|else|for|while|do|switch|case|try|catch|finally|function|async|class|type|interface|enum|namespace|declare|abstract|using|export|import|break|continue|debugger)$/u.test(firstWord)) return undefined;
+  return openingEnd + (/^[\t ]*/u.exec(rest)?.[0].length ?? 0);
 }
 
 /** Recognize complete standalone declarations, including adjacent code paragraphs. */
 function detectedCodeEnd(text: string): number | undefined {
   const tokens = codeTokens(text.slice(0, maximumReplyLength));
+  if (!hasAttachedDocumentation(text, tokens[0])) return undefined;
+  const signatureEnd = text.trimStart().startsWith('/**') ? isolatedSignatureEnd(text, tokens) : undefined;
+  if (signatureEnd !== undefined) return signatureEnd;
   let index = 0;
   let end: number | undefined;
   while (index < tokens.length) {
@@ -353,18 +388,23 @@ export function withDetectedCodeBlocks(markdown: string, fallbackLanguage: strin
   let protectedIndex = 0;
   let previousBlank = true;
   let attempts = 0;
+  let skippedDocumentationUntil = 0;
   for (const line of lines(markdown)) {
     const protectedBlock = protectedBlocks[protectedIndex];
     if (protectedBlock !== undefined && line.start >= protectedBlock.end) protectedIndex += 1;
     const currentBlock = protectedBlocks[protectedIndex];
-    if (line.start < copied || (currentBlock !== undefined && line.start >= currentBlock.start && line.start < currentBlock.end)) {
+    if (line.start < copied || line.start < skippedDocumentationUntil
+      || (currentBlock !== undefined && line.start >= currentBlock.start && line.start < currentBlock.end)) {
       previousBlank = line.text.trim().length === 0;
       continue;
     }
-    if (previousBlank && /^ {0,3}(?:import\s|export\s+(?:default\s+)?(?:async\s+)?function\b)/u.test(line.text) && attempts < 64) {
+    if (previousBlank && /^ {0,3}(?:\/\*\*|import\s|export\s+(?:default\s+)?(?:async\s+)?function\b)/u.test(line.text) && attempts < 64) {
       attempts += 1;
       const limit = currentBlock?.start ?? markdown.length;
       const candidate = markdown.slice(line.start, limit);
+      const isDocumentation = candidate.trimStart().startsWith('/**');
+      const documentationEnd = isDocumentation ? candidate.indexOf('*/') : -1;
+      if (isDocumentation && documentationEnd < 0) break;
       const detectedEnd = detectedCodeEnd(candidate);
       if (detectedEnd !== undefined) {
         const end = line.start + detectedEnd;
@@ -372,6 +412,8 @@ export function withDetectedCodeBlocks(markdown: string, fallbackLanguage: strin
         const newline = code.includes('\r\n') ? '\r\n' : '\n';
         result += markdown.slice(copied, line.start) + '~~~' + language + newline + code + newline + '~~~';
         copied = end;
+      } else if (isDocumentation) {
+        skippedDocumentationUntil = line.start + documentationEnd + 2;
       }
     }
     previousBlank = line.text.trim().length === 0;

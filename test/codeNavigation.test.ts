@@ -113,6 +113,32 @@ test('legacy code boxes open their displayed snippet and recover it after a relo
   assert.equal(recovered.getText(), `${code}\n`);
 });
 
+test('the reported documented function header renders and opens without completing or swallowing its prose', async () => {
+  const code = '/** Retries the operation up to 3 times with a fixed 1s delay between attempts; rethrows the last error if all attempts fail. */\nexport async function withRetry(operation) {';
+  const intro = 'Dieser Thread ist als "ask" markiert, daher nehme ich hier keine Datei-Änderung vor, sondern schlage dir die Formulierung vor:';
+  const outro = 'Falls du möchtest, dass ich das direkt einfüge, markiere das Feedback bitte als "implement" (oder sag mir kurz Bescheid) und ich übernehme die Änderung in retry.js.';
+  const { store, thread, message } = fixture(`${intro}\n\n${code}\n\n${outro}`, 'unrelated();');
+  const before = JSON.stringify(thread);
+  const navigator = await navigation(store);
+  const comment = commentFor(navigator, thread, message);
+  assert.equal(comment.body.value.startsWith(intro), true);
+  assert.equal(comment.body.value.endsWith(outro), true);
+  assert.equal(comment.body.value.includes(`~~~typescript\n${code}\n~~~`), true);
+  assert.equal(comment.body.value.includes('background-color:var(--vscode-editor-background)'), true);
+
+  await commands.executeCommand(openCommentCodeCommand, comment);
+
+  const preview = window.shownDocuments[0]?.document;
+  assert.ok(preview);
+  assert.equal(preview.getText(), `${code}\n`);
+  assert.equal(preview.isReadonly, true);
+  assert.equal(JSON.stringify(thread), before);
+  navigator.dispose();
+  workspace.textDocuments.splice(0);
+  await navigation(store);
+  assert.equal((await workspace.openTextDocument(preview.uri)).getText(), `${code}\n`);
+});
+
 test('opening composer code beside a lone chat preserves its only editor group', async () => {
   const { store, thread } = fixture('Discussion');
   workspace.textDocuments.push(new FakeTextDocument(Uri.file('/workspace/src/example.ts'), 'before\nvalue();\nafter', 'typescript'));

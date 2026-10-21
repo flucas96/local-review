@@ -105,6 +105,76 @@ test('handles ordinary property identifiers without mistaking object prototype n
   assert.equal(withDetectedCodeBlocks(code, 'javascript'), `~~~javascript\n${code}\n~~~`);
 });
 
+test('repairs the documented signature excerpt without inventing a body or swallowing surrounding prose', () => {
+  const before = 'Dieser Thread ist als "ask" markiert, daher nehme ich hier keine Datei-Änderung vor, sondern schlage dir die Formulierung vor:';
+  const code = '/** Retries the operation up to 3 times with a fixed 1s delay between attempts; rethrows the last error if all attempts fail. */\nexport async function withRetry(operation) {';
+  const after = 'Falls du möchtest, dass ich das direkt einfüge, markiere das Feedback bitte als "implement" (oder sag mir kurz Bescheid) und ich übernehme die Änderung in retry.js.';
+  const markdown = `${before}\n\n${code}\n\n${after}`;
+  const rendered = withDetectedCodeBlocks(markdown, 'javascript');
+  assert.equal(rendered, `${before}\n\n~~~javascript\n${code}\n~~~\n\n${after}`);
+  assert.deepEqual(readCodeBlocks(rendered), [{ index: 0, code: `${code}\n`, language: 'javascript' }]);
+  assert.equal(withDetectedCodeBlocks(rendered, 'javascript'), rendered);
+  assert.equal(markdown, `${before}\n\n${code}\n\n${after}`);
+});
+
+test('recognizes complete documented functions on the same line or after multiline JSDoc', () => {
+  const cases = [
+    '/** Explain the retry operation. */ export async function retry(operation) { return operation(); }',
+    '/**\n * Explain the retry operation.\n * Preserve this documentation.\n */\nexport async function retry(operation) {\n\n  return operation();\n}',
+  ];
+  for (const code of cases) {
+    assert.equal(withDetectedCodeBlocks(code, 'javascript'), `~~~javascript\n${code}\n~~~`);
+  }
+});
+
+test('preserves CRLF and a multiline documented signature with balanced nested parameters', () => {
+  const code = '/**\r\n * Retry the operation.\r\n */\r\nexport async function retry(operation = () => ({ value: 1 })) {\t';
+  const markdown = `Before.\r\n\r\n${code}\r\n\r\nFalls du möchtest, kann ich das einfügen.`;
+  const rendered = withDetectedCodeBlocks(markdown, 'typescript');
+  assert.equal(rendered, `Before.\r\n\r\n~~~typescript\r\n${code}\r\n~~~\r\n\r\nFalls du möchtest, kann ich das einfügen.`);
+});
+
+test('keeps complete documented functions with TypeScript declarations or using statements in one snippet', () => {
+  for (const statement of ['type Result = number;', 'interface Result { value: number; }', 'using resource = acquire();']) {
+    const code = `/** Explain the operation. */\nexport function retry() {\n\n${statement}\n  return 1;\n}`;
+    assert.equal(withDetectedCodeBlocks(code, 'typescript'), `~~~typescript\n${code}\n~~~`);
+  }
+});
+
+test('keeps following prose outside an isolated signature even if it mentions a closing brace', () => {
+  const code = '/** Explain the operation. */ export function retry(operation) {';
+  const after = 'The closing brace } belongs to the existing implementation.';
+  assert.equal(withDetectedCodeBlocks(`${code}\n\n${after}`, 'javascript'), `~~~javascript\n${code}\n~~~\n\n${after}`);
+});
+
+test('leaves doc-only prose, malformed headers, unattached docs, and incomplete bodies unchanged', () => {
+  const cases = [
+    '/** Ordinary documentation without an exported function. */',
+    '/**\n * An example mentioned only inside documentation.\n\nexport function retry() { return 1; }\n*/',
+    '/** Explain the operation. */\n\nThis paragraph describes an example.',
+    '/** Explain the operation. */\nThis paragraph precedes export function retry() {',
+    '/** Explain the operation. */\n/* A separate comment. */ export function retry() {',
+    '/** Missing the documentation terminator.\nexport function retry() {',
+    '/** Missing the documentation terminator.\n\nexport function retry() { return 1; }',
+    '/** Explain the operation. */ export function retry(operation)) {',
+    '/** Explain the operation. */ export function retry((operation) {',
+    '/** Explain the operation. */ export function retry() {\n return 1;',
+    '/** Explain the operation. */ export function retry() {\n\nreturn operation();',
+  ];
+  for (const markdown of cases) assert.equal(withDetectedCodeBlocks(markdown, 'javascript'), markdown);
+});
+
+test('keeps documented snippets inside existing fences and original HTML outside cards neutralized', () => {
+  const code = '/** Explain <value>. */ export function retry() {';
+  const fenced = `~~~javascript\n${code}\n~~~`;
+  assert.equal(withDetectedCodeBlocks(fenced, 'javascript'), fenced);
+  const markdown = `${code}\n\nFalls du möchtest, kann ich das einfügen.\n\n<span style="background-color:red">prose</span>`;
+  const detected = withDetectedCodeBlocks(markdown, 'javascript');
+  const rendered = withCodeBlockCards(detected, 'javascript');
+  assert.equal(readCodeBlocks(rendered)[0]?.code, `${code}\n`);
+  assert.equal(rendered.includes('&lt;span style="background-color:red">prose&lt;/span>'), true);
+});
+
 test('recognizes common import forms and preserves source ending in a newline', () => {
   const code = "import 'side-effect';\nimport value from 'default';\nimport value, { type Item, retry as again } from 'named';\nimport * as tools from 'namespace';\n";
   const repaired = withDetectedCodeBlocks(code, 'ts');

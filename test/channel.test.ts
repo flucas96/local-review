@@ -139,7 +139,8 @@ test('preserves fenced reply code, indentation, and actual newlines through the 
   const replyText = record(record(replyTool?.inputSchema.properties)?.text);
   const instructions = replyText?.description;
   assert.ok(typeof instructions === 'string');
-  assert.match(instructions, /import statements and functions that happen to fit on one line/u);
+  assert.match(instructions, /import statements, doc comments, incomplete function headers/u);
+  assert.match(instructions, /functions that happen to fit on one line/u);
   assert.match(instructions, /each logical code line.*separate lines/u);
   assert.match(instructions, /indentation and actual newlines/u);
   const thread = await store.submit(anchor(), 'How would you calculate the retry delay?', 'ask');

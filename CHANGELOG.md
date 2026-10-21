@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.3
+
+- Format obvious legacy JSDoc comments attached to exported JavaScript/TypeScript declarations as code cards, including a standalone function header ending at its opening brace.
+- Preserve the original snippet, surrounding explanation and saved review text; never invent a missing function body or closing brace.
+- Clarify that agent reply formatting also applies to doc comments and incomplete function headers.
+
 ## 0.4.2
 
 - Move the code-reference icon to the native comment header beside the author and timestamp; remove the extra action row from reply text.

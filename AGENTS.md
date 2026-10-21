@@ -28,6 +28,7 @@ Analyze the project structure before making changes. Keep the native VS Code rev
 - Do not silently attach uncertain comments to another line of code.
 - Code actions open current project code only after a confirmed content match. Proposed, missing or ambiguous snippets stay read-only; Markdown code blocks do not claim native editor semantics.
 - Code-reference actions belong in the native comment header, alongside the author, without a separate action row in the body.
+- Code examples may intentionally stop at a function header. Display repair must preserve their bytes and surrounding prose without inventing a function body or closing brace.
 - Native header actions bind original comment objects to opaque session handles. Model-provided paths or command arguments cannot select navigation targets; reply Markdown stays untrusted.
 - Native code cards use only approved theme-aware markup. Neutralize original message HTML before enabling generated HTML; navigation continues reading undecorated stored code.
 - Keep connection credentials outside the repository and preserve existing Claude configuration.

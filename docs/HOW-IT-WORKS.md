@@ -64,6 +64,6 @@ Die [SVG-Grafik](media/local-review-flow.svg) zeigt den gemeinsamen Review-Zyklu
 
 Die daraus gerenderte [PNG-Version](media/local-review-flow.png) wird im README und Installationspaket verwendet, weil VS Codes Paketprüfung SVG-Bilder im README ablehnt.
 
-Stand: Version 0.4.2. Die Darstellung erklärt die implementierte Bedienung und ist kein Nachweis einer bereits vollständig geprüften Live-Sitzung. Den aktuellen Prüfstand dokumentiert [REVIEW.md](REVIEW.md).
+Stand: Version 0.4.3. Die Darstellung erklärt die implementierte Bedienung und ist kein Nachweis einer bereits vollständig geprüften Live-Sitzung. Den aktuellen Prüfstand dokumentiert [REVIEW.md](REVIEW.md).
 
 </details>
