@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import type { TestContext } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import { createReviewBridge } from '../src/bridge.js';
 import { readBatch } from '../src/connection.js';
@@ -23,6 +24,8 @@ interface HookResult {
 interface HookProcess {
   readonly process: ChildProcessWithoutNullStreams;
   readonly completed: Promise<HookResult>;
+  readonly stdout: string;
+  readonly stderr: string;
 }
 
 type HookEvent = 'SessionStart' | 'UserPromptSubmit' | 'PostToolUse' | 'Stop';
@@ -31,6 +34,8 @@ interface TransportFixture {
   readonly store: ReviewStore;
   readonly bridge: ReviewBridge;
   readonly startHook: (sessionId: string, event?: HookEvent, agentId?: string) => HookProcess;
+  readonly runningHooks: () => readonly HookProcess[];
+  readonly restartBridge: () => Promise<ReviewBridge>;
 }
 
 /** Exercise the packaged hook against a real local bridge and isolated durable storage. */
@@ -39,12 +44,13 @@ async function fixture(t: TestContext): Promise<TransportFixture> {
   await access(hookPath);
   const root = await mkdtemp(path.join(tmpdir(), 'local-review-transport-'));
   const store = await createReviewStore(path.join(root, 'review.json'), root);
-  const bridge = await createReviewBridge(store);
+  let bridge = await createReviewBridge(store);
+  const bridges = [bridge];
   const connectionPath = path.join(root, 'connection.json');
   const hooks: HookProcess[] = [];
   await writeFile(connectionPath, JSON.stringify(bridge.descriptor), { mode: 0o600 });
   t.after(async () => {
-    const running = hooks.filter((hook) => hook.process.exitCode === null && hook.process.signalCode === null);
+    const running = runningHooks();
     for (const hook of running) {
       hook.process.kill('SIGTERM');
     }
@@ -58,7 +64,7 @@ async function fixture(t: TestContext): Promise<TransportFixture> {
     forceStop.unref();
     await Promise.allSettled(hooks.map((hook) => hook.completed));
     clearTimeout(forceStop);
-    bridge.dispose();
+    for (const server of bridges) server.dispose();
     await store.flush();
     await rm(root, { recursive: true, force: true });
   });
@@ -86,11 +92,31 @@ async function fixture(t: TestContext): Promise<TransportFixture> {
       hook_event_name: event,
       ...(agentId === undefined ? {} : { agent_id: agentId }),
     }));
-    const hook = { process: child, completed };
+    const hook: HookProcess = {
+      process: child, completed,
+      get stdout() { return stdout; },
+      get stderr() { return stderr; },
+    };
     hooks.push(hook);
     return hook;
   }
-  return { store, bridge, startHook };
+
+  /** Count live hook children directly, including duplicate hooks that have not exited yet. */
+  function runningHooks(): readonly HookProcess[] {
+    return hooks.filter((hook) => hook.process.exitCode === null && hook.process.signalCode === null);
+  }
+
+  return {
+    store, startHook, runningHooks,
+    get bridge() { return bridge; },
+    restartBridge: async () => {
+      bridge.dispose();
+      bridge = await createReviewBridge(store);
+      bridges.push(bridge);
+      await writeFile(connectionPath, JSON.stringify(bridge.descriptor), { mode: 0o600 });
+      return bridge;
+    },
+  };
 }
 
 /** Capture the source excerpt that must arrive unchanged in hook feedback. */
@@ -137,6 +163,38 @@ function waitForConnection(bridge: ReviewBridge): Promise<void> {
       }
     });
   });
+}
+
+/** Observe authenticated hook requests so silence is checked after startup and snapshot filtering. */
+function waitForRequests(bridge: ReviewBridge, count: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let remaining = count;
+    const timeout = setTimeout(() => {
+      subscription.dispose();
+      reject(new Error(`The hook did not make ${count} authenticated bridge requests.`));
+    }, 5_000);
+    const subscription = bridge.onChange(() => {
+      if (!bridge.state.connected) return;
+      remaining -= 1;
+      if (remaining > 0) return;
+      clearTimeout(timeout);
+      subscription.dispose();
+      resolve();
+    });
+  });
+}
+
+/** Require an already-connected watcher to remain alive and emit no wake-up feedback. */
+async function assertQuietWatcher(hook: HookProcess): Promise<void> {
+  const stopped = await Promise.race([
+    hook.completed,
+    delay(400).then(() => undefined),
+  ]);
+  assert.equal(stopped, undefined, 'The watcher must keep waiting when only an already-emitted event exists.');
+  assert.equal(hook.process.exitCode, null);
+  assert.equal(hook.process.signalCode, null);
+  assert.equal(hook.stdout, '');
+  assert.equal(hook.stderr, '');
 }
 
 test('delivers queued feedback through hook exit 2 without acknowledging it before Claude does', { timeout: 15_000 }, async (t) => {
@@ -281,4 +339,67 @@ test('ignores subagent hooks before they can claim the workspace watcher', { tim
   assert.equal(parent.code, 2);
   assert.ok(parent.stderr.includes(thread.latestEventId));
   assert.equal(store.events[0]?.acknowledged, false);
+});
+
+test('keeps an unacknowledged old event quiet through idle Stop rearming and duplicate PostToolUse hooks', { timeout: 15_000 }, async (t) => {
+  const { store, bridge, startHook, runningHooks } = await fixture(t);
+  const old = await store.submit(anchor(), 'Diese Frage ist bereits einmal zugestellt.', 'ask');
+  const initial = await startHook('idle-session', 'SessionStart').completed;
+  assert.equal(initial.code, 2);
+  assert.ok(initial.stderr.includes(old.latestEventId));
+  assert.equal(store.events[0]?.acknowledged, false);
+
+  const polling = waitForRequests(bridge, 2);
+  const waiting = startHook('idle-session', 'Stop');
+  await polling;
+  await assertQuietWatcher(waiting);
+  const duplicate = await startHook('idle-session', 'PostToolUse').completed;
+  assert.deepEqual(duplicate, { code: 0, signal: null, stdout: '', stderr: '' });
+  assert.deepEqual(runningHooks(), [waiting]);
+  await assertQuietWatcher(waiting);
+
+  const fresh = await store.submit(anchor(), 'Diese neue Frage soll den wartenden Chat wecken.', 'ask');
+  const delivered = await waiting.completed;
+  assert.equal(delivered.code, 2);
+  assert.equal(delivered.signal, null);
+  assert.equal(delivered.stdout, '');
+  assert.ok(delivered.stderr.includes(fresh.latestEventId));
+  assert.ok(!delivered.stderr.includes(old.latestEventId));
+  assert.equal(delivered.stderr.split('BEGIN REVIEW DATA (JSON)').length - 1, 1);
+  assert.deepEqual(store.events.map((event) => event.acknowledged), [false, false]);
+
+  const rearmedPolling = waitForRequests(bridge, 2);
+  const rearmed = startHook('idle-session', 'Stop');
+  await rearmedPolling;
+  await assertQuietWatcher(rearmed);
+  assert.deepEqual(runningHooks(), [rearmed]);
+});
+
+test('preserves same-session emission receipts through a live bridge restart and delivers only new feedback', { timeout: 15_000 }, async (t) => {
+  const context = await fixture(t);
+  const { store, startHook, runningHooks } = context;
+  const old = await store.submit(anchor(), 'Ein Verbindungswechsel soll diese Frage nicht wiederholen.', 'ask');
+  assert.equal((await startHook('reconnecting-session', 'SessionStart').completed).code, 2);
+
+  const polling = waitForRequests(context.bridge, 2);
+  const waiting = startHook('reconnecting-session', 'Stop');
+  await polling;
+  await assertQuietWatcher(waiting);
+  const previous = context.bridge.descriptor;
+  const replacement = await context.restartBridge();
+  assert.notEqual(replacement.descriptor.token, previous.token);
+  await waitForConnection(replacement);
+  await assertQuietWatcher(waiting);
+  assert.deepEqual(runningHooks(), [waiting]);
+  assert.equal(store.events[0]?.acknowledged, false);
+
+  const fresh = await store.submit(anchor(), 'Nach dem Wiederverbinden ist dies der neue Auftrag.', 'implement');
+  const delivered = await waiting.completed;
+  assert.equal(delivered.code, 2);
+  assert.equal(delivered.signal, null);
+  assert.equal(delivered.stdout, '');
+  assert.ok(delivered.stderr.includes(fresh.latestEventId));
+  assert.ok(!delivered.stderr.includes(old.latestEventId));
+  assert.equal(delivered.stderr.split('BEGIN REVIEW DATA (JSON)').length - 1, 1);
+  assert.deepEqual(store.events.map((event) => event.acknowledged), [false, false]);
 });

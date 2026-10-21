@@ -64,6 +64,8 @@ Code context is captured when you submit feedback. If an old location cannot be 
 
 This is an early preview. Native conversations have distinct avatars and compact status headings; the optional side composer uses rounded surfaces and quiet mint accents. Code actions connect the chat to the native editor. VS Code controls the native comment layout. Current checks and remaining authenticated integration work are recorded in the [review findings](docs/REVIEW.md). The demo uses simulated responses.
 
+The [end-to-end verification report](docs/QA-2026-10-21.md) distinguishes real VS Code clicks, controlled failure simulations and live Claude results, with unverified flows left open.
+
 The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks missing Claude-to-thread navigation, unread replies, delivery readiness, and support for launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
 
 - One local workspace folder and one intended agent session.

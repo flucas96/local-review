@@ -2,6 +2,8 @@
 
 Reviewed on 20–21 October 2026. **Fixed** means a source change has been made. **Verified** requires recorded execution evidence; a static review or a staged demo does not establish it.
 
+Latest evidence: [end-to-end verification report](QA-2026-10-21.md), including **169 passing automated tests**, an old/new hook reproduction and a real headless Claude roundtrip for ask, implement and summarize. The complete interactive native walkthrough remains open because reliable mouse/keyboard control was unavailable.
+
 ## Findings
 
 | ID | Priority | Finding | Source status | Verification |
@@ -146,4 +148,4 @@ Version 0.4.4 was installed and activated in the user's actual macOS VS Code. Tw
 
 Open work is tracked in GitHub: [validation and live integration #1](https://github.com/flucas96/local-review/issues/1), [Marketplace publisher and listing #2](https://github.com/flucas96/local-review/issues/2), [large-backlog pagination #3](https://github.com/flucas96/local-review/issues/3), [daily-workflow usability #4](https://github.com/flucas96/local-review/issues/4), and [live modes, PR handoff and demo #5](https://github.com/flucas96/local-review/issues/5).
 
-The `0.4.4` bundle and strict TypeScript checking pass, as do all 167 automated tests. Packaging includes the extension icon, view SVG, author avatars and illustrated flow. Native code-action navigation, JavaScript hover, F12 and a colored snapshot preview were exercised in the macOS playground. A fresh authenticated reply with fenced code, the full Claude/PR walkthrough, publisher registration and Marketplace publication remain pending. Manual GitHub Actions workflows have not been run. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.
+The `0.4.4` bundle and strict TypeScript checking pass, as do all 169 automated tests. Packaging includes the extension icon, view SVG, author avatars and illustrated flow. Native code-action navigation, JavaScript hover, F12, colored previews and resolve/show/reopen were exercised in the macOS playground. Real headless Claude replied with fenced code for all three review intents. A fresh interactive input-to-reply walkthrough, full PR walkthrough, publisher registration and Marketplace publication remain pending. Manual GitHub Actions workflows have not been run. Record future verification with the commit, platform, scenario, result, and a link to the workflow run or issue.

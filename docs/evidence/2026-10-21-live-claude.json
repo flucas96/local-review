@@ -1,0 +1,73 @@
+{
+  "results": [
+    {
+      "mode": "ask",
+      "claudeExitCode": 0,
+      "claudeSignal": null,
+      "timedOut": false,
+      "resultError": false,
+      "hookDeliveryCount": 1,
+      "acknowledged": true,
+      "replyCount": 1,
+      "status": "answered",
+      "fencedReply": true,
+      "sourceHashBefore": "dd7e060086586d4162d5c1182be1aaabc327639fda20bcec866e3240a5d59d5a",
+      "sourceHashAfter": "dd7e060086586d4162d5c1182be1aaabc327639fda20bcec866e3240a5d59d5a",
+      "sourceUnchanged": true,
+      "implementationMatches": false,
+      "sourceFiles": [
+        "fixture.ts"
+      ],
+      "elapsedMs": 12461,
+      "stdoutBytes": 978,
+      "stderrBytes": 0,
+      "permissionDenialCount": 0
+    },
+    {
+      "mode": "implement",
+      "claudeExitCode": 0,
+      "claudeSignal": null,
+      "timedOut": false,
+      "resultError": false,
+      "hookDeliveryCount": 1,
+      "acknowledged": true,
+      "replyCount": 1,
+      "status": "ready",
+      "fencedReply": true,
+      "sourceHashBefore": "dd7e060086586d4162d5c1182be1aaabc327639fda20bcec866e3240a5d59d5a",
+      "sourceHashAfter": "4c0554b0a0c896cc52cdd70884102bcdbc1707992010d91007aaccb57085bde9",
+      "sourceUnchanged": false,
+      "implementationMatches": true,
+      "sourceFiles": [
+        "fixture.ts"
+      ],
+      "elapsedMs": 21769,
+      "stdoutBytes": 1074,
+      "stderrBytes": 0,
+      "permissionDenialCount": 0
+    },
+    {
+      "mode": "summarize",
+      "claudeExitCode": 0,
+      "claudeSignal": null,
+      "timedOut": false,
+      "resultError": false,
+      "hookDeliveryCount": 1,
+      "acknowledged": true,
+      "replyCount": 1,
+      "status": "answered",
+      "fencedReply": true,
+      "sourceHashBefore": "4c0554b0a0c896cc52cdd70884102bcdbc1707992010d91007aaccb57085bde9",
+      "sourceHashAfter": "4c0554b0a0c896cc52cdd70884102bcdbc1707992010d91007aaccb57085bde9",
+      "sourceUnchanged": true,
+      "implementationMatches": true,
+      "sourceFiles": [
+        "fixture.ts"
+      ],
+      "elapsedMs": 12103,
+      "stdoutBytes": 1034,
+      "stderrBytes": 0,
+      "permissionDenialCount": 0
+    }
+  ]
+}

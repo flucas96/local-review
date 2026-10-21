@@ -1,0 +1,24 @@
+{
+  "old": {
+    "sourceRevision": "561d96f",
+    "initialExitCode": 2,
+    "rearmExitCode": 2,
+    "reemitsSameEventWithoutAck": true,
+    "storedAcknowledgment": false
+  },
+  "current": {
+    "sourceRevision": "current",
+    "initialExitCode": 2,
+    "idleWindowMs": 400,
+    "idleStdoutBytes": 0,
+    "idleStderrBytes": 0,
+    "idleRemainsRunning": true,
+    "newEventExitCode": 2,
+    "newEventDeliveredOnce": true,
+    "oldEventRepeated": false,
+    "storedAcknowledgments": [
+      false,
+      false
+    ]
+  }
+}

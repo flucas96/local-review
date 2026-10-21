@@ -39,6 +39,11 @@ Use `npm ci --ignore-scripts` for dependencies, `npm run build` for bundles, and
 
 Use Python through `uv run` if a supporting media task requires it.
 
+## Verification
+
+- Verify user-facing flows with end-to-end clicks in VS Code and controlled agent simulation, including the actual failure scenario.
+- Distinguish automated logic, process simulation, observed native UI and authenticated Claude evidence. Keep unverified flows pending; do not claim completion from unit tests or a simulated walkthrough alone.
+
 ## Tracking
 
 Record user-visible changes in `CHANGELOG.md`. Keep installation, publishing, review findings, and known limitations current in `README.md` and `docs/`.
