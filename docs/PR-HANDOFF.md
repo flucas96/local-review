@@ -6,9 +6,11 @@ PR handoff is a separate action. `/r` continues to ask Claude for a local conver
 
 Install the [GitHub CLI](https://cli.github.com/) and sign in with `gh auth login`. Open the local branch that already has an open PR. In VS Code's Review toolbar choose **Local Review: An GitHub-PR übergeben**.
 
-Choose the available summaries and unresolved questions to include. The preview identifies the destination repository and PR and lets you edit the Markdown before publishing. It is a snapshot: later Claude replies or local comments do not silently change what you are about to send. Reopen the action to prepare an updated snapshot.
+Choose the available summaries and unresolved questions to include. The preview identifies the destination repository and PR and lets you edit the Markdown before publishing. It is a snapshot: later Claude replies or local comments do not silently change what you are about to send.
 
-Use the explicit publish/update button after reviewing the text. Closing the preview does not publish. Sharing does not mark local work delivered, resolve a conversation, commit files, push the branch, or create a PR.
+Use the publish/update button or **Ctrl/Cmd+Enter** after reviewing the text. The input locks during publication. Composition-confirmation keystrokes do not publish. After success, unchanged text cannot be sent again; further edits show **Nicht veröffentlichte Änderungen**.
+
+Closing does not publish. If you edited the text or publication failed, reopening the action offers **Entwurf fortsetzen** with that exact snapshot or **Neue Momentaufnahme** to select current content. Recovery is held in memory for this VS Code session and ends on window reload or restart. Sharing leaves local delivery and resolution states unchanged and does not commit, push or create a PR.
 
 ## What appears on GitHub
 
@@ -22,8 +24,8 @@ Captured file paths, line numbers and Git revisions describe local context. They
 
 - No open PR: open the branch with the intended PR, or create the PR through your normal workflow first.
 - Missing CLI or authentication: install GitHub CLI and sign in from your terminal, then reopen the action.
-- Branch or destination changed: refresh the preview before publishing.
+- Branch or destination changed: close the preview, reopen the action and choose **Neue Momentaufnahme** if offered.
 - Comment too long: remove sections or shorten the preview; content is not silently truncated.
-- Publishing failed: the preview remains available; retry after checking the error. Existing managed comments are checked before creating another.
+- Publishing failed: the text remains editable; retry after checking the error, or close and resume it in the same editor session. Existing managed comments are checked before creating another.
 
 Only the content you review and explicitly publish leaves the local review store through this action. The feature does not automatically synchronize future comments.

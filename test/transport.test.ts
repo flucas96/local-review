@@ -202,6 +202,7 @@ test('delivers queued feedback through hook exit 2 without acknowledging it befo
   const connected = waitForConnection(bridge);
   const hook = startHook('review-session');
   await connected;
+  assert.equal(bridge.state.deliveryReady, true);
   const feedback = 'Warum wird hier der gespeicherte Wert verwendet?';
   const thread = await store.submit(anchor(), feedback, 'ask');
   const result = await hook.completed;

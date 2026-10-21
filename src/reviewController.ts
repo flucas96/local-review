@@ -47,6 +47,11 @@ interface LocatedDocument {
   readonly captured: boolean;
 }
 
+interface RenderedComments {
+  readonly messages: readonly ReviewMessage[];
+  readonly comments: readonly vscode.Comment[];
+}
+
 /** Hash the full document so restored comments never silently change versions. */
 function documentHash(document: vscode.TextDocument): string {
   return hashDocumentText(document.getText());
@@ -139,15 +144,16 @@ class ReviewItem extends vscode.TreeItem {
 
   constructor(thread: ReviewThread) {
     const firstMessage = thread.messages[0]?.text.replaceAll(/\s+/gu, ' ') ?? 'Review-Kommentar';
-    super(`${intentLabels[thread.intent]} · ${firstMessage.slice(0, 90)}`, vscode.TreeItemCollapsibleState.None);
+    super(`${path.basename(thread.anchor.path)}:${thread.anchor.startLine} · ${firstMessage.slice(0, 90)}`, vscode.TreeItemCollapsibleState.None);
     this.threadId = thread.id;
     this.id = thread.id;
-    this.description = thread.resolved ? 'Erledigt' : `${statusLabels[thread.status]}${thread.outdated ? ' · Kontext geändert' : ''}`;
+    const status = thread.resolved ? 'Erledigt' : `${statusLabels[thread.status]}${thread.outdated ? ' · Kontext geändert' : ''}`;
+    this.description = `${intentLabels[thread.intent]} · ${status}`;
     this.contextValue = thread.resolved ? 'localReview.resolved' : 'localReview.open';
     this.iconPath = new vscode.ThemeIcon(thread.resolved ? 'pass' : thread.outdated ? 'warning' : thread.status === 'working' ? 'sync~spin' : 'comment-discussion');
     this.command = { command: 'localReview.revealThread', title: 'Zum Kommentar springen', arguments: [thread.id] };
     this.tooltip = new vscode.MarkdownString()
-      .appendText(`${thread.anchor.path}:${thread.anchor.startLine}\n${this.description}\n\n${firstMessage}`);
+      .appendText(`${thread.anchor.path}:${thread.anchor.startLine}\n${intentLabels[thread.intent]} · ${status}\n\n${firstMessage}`);
   }
 }
 
@@ -194,6 +200,7 @@ export async function createReviewController(
     claude: { name: 'Claude', iconPath: vscode.Uri.joinPath(context.extensionUri, 'resources', 'assistant.svg') },
   };
   const bindings = new Map<string, ThreadBinding>();
+  const renderedComments = new WeakMap<vscode.CommentThread, RenderedComments>();
   const visibility = new ReviewVisibility(context.workspaceState);
   await vscode.commands.executeCommand('setContext', resolvedVisibilityKey, visibility.showResolved);
   const tree = new ReviewTree(store, visibility);
@@ -201,7 +208,7 @@ export async function createReviewController(
   const disposables: vscode.Disposable[] = [controller, tree, view];
   const codeNavigation = await createCodeNavigation(store);
   disposables.push(codeNavigation);
-  const nativeDrafts = new Set<vscode.CommentThread>();
+  const nativeDrafts = new Map<vscode.CommentThread, CodeAnchor>();
   const inlineSubmissions = new SubmissionGate<vscode.CommentThread>();
   let disposed = false;
   let syncPending = Promise.resolve();
@@ -213,7 +220,8 @@ export async function createReviewController(
   const selectionDecoration = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
     backgroundColor: new vscode.ThemeColor('localReview.selectionBackground'),
-    border: '1px solid',
+    borderStyle: 'solid',
+    borderWidth: '0 0 0 2px',
     borderColor: new vscode.ThemeColor('localReview.selectionBorder'),
     overviewRulerColor: new vscode.ThemeColor('localReview.selectionBorder'),
     overviewRulerLane: vscode.OverviewRulerLane.Center,
@@ -352,16 +360,28 @@ export async function createReviewController(
 
   /** Copy durable status into the native comment controls. */
   function updateNative(thread: ReviewThread, native: vscode.CommentThread): void {
-    native.comments = thread.messages.map((message) => {
-      const comment = nativeComment(message, authors[message.author], codeNavigation.markdown(thread, message));
-      codeNavigation.bindComment(thread, message, comment);
-      return comment;
-    });
-    native.contextValue = thread.resolved ? 'localReview.resolved' : 'localReview.open';
-    native.state = thread.resolved ? vscode.CommentThreadState.Resolved : vscode.CommentThreadState.Unresolved;
-    native.canReply = thread.resolved ? false : authors.human;
+    const previous = renderedComments.get(native);
+    if (previous?.messages !== thread.messages) {
+      const reusable = new Map(previous?.messages.map((message, index) => [message, previous.comments[index]]));
+      const comments = thread.messages.map((message) => {
+        const existing = reusable.get(message);
+        if (existing !== undefined) return existing;
+        const comment = nativeComment(message, authors[message.author], codeNavigation.markdown(thread, message));
+        codeNavigation.bindComment(thread, message, comment);
+        return comment;
+      });
+      native.comments = comments;
+      renderedComments.set(native, { messages: thread.messages, comments });
+    }
+    const contextValue = thread.resolved ? 'localReview.resolved' : 'localReview.open';
+    const state = thread.resolved ? vscode.CommentThreadState.Resolved : vscode.CommentThreadState.Unresolved;
+    const canReply = thread.resolved ? false : authors.human;
+    if (native.contextValue !== contextValue) native.contextValue = contextValue;
+    if (native.state !== state) native.state = state;
+    if (native.canReply !== canReply) native.canReply = canReply;
     const contextLabel = native.uri.scheme === contextScheme ? ' · Gespeicherter Kontext' : thread.outdated ? ' · Kontext geändert' : '';
-    native.label = `${intentLabels[thread.intent]} · ${thread.resolved ? 'Erledigt' : statusLabels[thread.status]}${contextLabel}`;
+    const label = `${intentLabels[thread.intent]} · ${thread.resolved ? 'Erledigt' : statusLabels[thread.status]}${contextLabel}`;
+    if (native.label !== label) native.label = label;
   }
 
   /** Attach a native comment control and remember its current document boundaries. */
@@ -658,13 +678,13 @@ export async function createReviewController(
     }
     const range = lineRange(editor.document, editor.selection);
     const request = await feedbackRequest(editor, range);
-    if (disposed || generation !== selectionGeneration) return;
+    if (disposed || generation !== selectionGeneration || request.anchor === undefined) return;
     const draft = controller.createCommentThread(editor.document.uri, range, []);
     draft.contextValue = 'localReview.draft';
     draft.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
     draft.canReply = authors.human;
     draft.label = 'Neuer Kommentar';
-    nativeDrafts.add(draft);
+    nativeDrafts.set(draft, request.anchor);
     activeComposerTarget = request;
     refreshSelectionDecoration();
   });
@@ -695,21 +715,31 @@ export async function createReviewController(
         }
         const parsed = parseComposerInput(reply.text, existing?.intent ?? 'ask', true);
         const document = await vscode.workspace.openTextDocument(reply.thread.uri);
-        const anchor = existing?.anchor ?? await captureAnchor(reply.thread.uri, reply.thread.range ?? new vscode.Range(0, 0, 0, 0));
+        const draftAnchor = nativeDrafts.get(reply.thread);
+        const anchor = existing?.anchor ?? draftAnchor ?? await captureAnchor(reply.thread.uri, reply.thread.range ?? new vscode.Range(0, 0, 0, 0));
         const thread = await commitFeedback({
           anchor, text: parsed.text, intent: parsed.intent, ...(id === undefined ? {} : { threadId: id }),
         });
         try {
+          const located = draftAnchor === undefined ? undefined : await openAnchorDocument(thread);
+          const native = located?.captured === true
+            ? controller.createCommentThread(located.document.uri, located.range, []) : reply.thread;
+          if (located !== undefined) native.range = located.range;
           const restored = bindings.get(thread.id);
-          if (restored !== undefined && restored.native !== reply.thread) restored.native.dispose();
-          bindThread(thread, reply.thread, document);
+          if (restored !== undefined && restored.native !== native) restored.native.dispose();
+          bindThread(thread, native, located?.document ?? document);
           nativeDrafts.delete(reply.thread);
-          reply.thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+          if (native !== reply.thread) reply.thread.dispose();
+          native.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
           activeComposerTarget = {
             id: `thread:${thread.id}`, title: 'Review', path: anchor.path,
             code: capturedCodeContext(anchor).text, intent: parsed.intent, threadId: thread.id, anchor,
           };
           refreshSelectionDecoration();
+          if (draftAnchor !== undefined && (located?.captured === true || documentHash(located?.document ?? document) !== anchor.documentHash)) {
+            await store.setOutdated(thread.id, true);
+          }
+          if (located?.captured === true) await revealBesideDiff(located.document, located.range);
         } catch (error: unknown) {
           reportError(error);
         }
@@ -833,7 +863,7 @@ export async function createReviewController(
   const disposable = new vscode.Disposable(() => {
     disposed = true;
     cancelSelectionCapture();
-    nativeDrafts.forEach((draft) => draft.dispose());
+    nativeDrafts.forEach((_anchor, draft) => draft.dispose());
     nativeDrafts.clear();
     for (const item of disposables.reverse()) {
       item.dispose();

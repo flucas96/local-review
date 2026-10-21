@@ -95,7 +95,7 @@ async function main(): Promise<void> {
   const stop = (): void => abort.abort();
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
-  const bridge = new BridgeClient(descriptor, connectionPath, abort.signal);
+  const bridge = new BridgeClient(descriptor, connectionPath, abort.signal, 'watcher');
   let retryMs = 500;
   let recover = envelope.hook_event_name === 'SessionStart';
   try {

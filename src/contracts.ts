@@ -92,9 +92,11 @@ export interface ReviewStore {
   flush(): Promise<void>;
 }
 
-/** State shown in VS Code when an MCP channel connects or disconnects. */
+/** Local client activity shown in VS Code, separate from acknowledgment of any review. */
 export interface BridgeState {
   readonly connected: boolean;
+  /** A feedback receiver was recently active; this never acknowledges a comment. */
+  readonly deliveryReady?: boolean;
   readonly lastSeenAt?: number;
 }
 

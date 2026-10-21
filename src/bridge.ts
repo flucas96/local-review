@@ -54,8 +54,9 @@ class LocalReviewBridge implements ReviewBridge {
   readonly #polls = new Set<PendingPoll>();
   readonly #storeSubscription: Disposable;
   #descriptor: ConnectionDescriptor | undefined;
-  #state: BridgeState = Object.freeze({ connected: false });
+  #state: BridgeState = Object.freeze({ connected: false, deliveryReady: false });
   #connectionTimer: ReturnType<typeof setTimeout> | undefined;
+  #deliveryTimer: ReturnType<typeof setTimeout> | undefined;
   #disposed = false;
 
   constructor(store: ReviewStore) {
@@ -128,12 +129,14 @@ class LocalReviewBridge implements ReviewBridge {
     this.#storeSubscription.dispose();
     clearTimeout(this.#connectionTimer);
     this.#connectionTimer = undefined;
+    clearTimeout(this.#deliveryTimer);
+    this.#deliveryTimer = undefined;
     for (const poll of this.#polls) {
       this.#finishPoll(poll, 503);
     }
     this.#server.close();
     this.#server.closeAllConnections();
-    this.#state = Object.freeze({ connected: false });
+    this.#state = Object.freeze({ connected: false, deliveryReady: false });
     this.#notify();
     this.#listeners.clear();
   }
@@ -152,7 +155,7 @@ class LocalReviewBridge implements ReviewBridge {
       respond(response, 401, { error: 'A valid review bridge token is required.' });
       return;
     }
-    this.#touch();
+    this.#touch(request.headers['x-local-review-client']);
     if (request.headers.origin !== undefined) {
       request.resume();
       respond(response, 403, { error: 'Browser-origin requests are not supported.' });
@@ -219,19 +222,33 @@ class LocalReviewBridge implements ReviewBridge {
     return supplied.length === expected.length && timingSafeEqual(supplied, expected);
   }
 
-  /** Count authenticated requests as liveness and expire a disconnected agent. */
-  #touch(): void {
+  /** Track a feedback receiver separately from MCP tool activity and explicit event ACKs. */
+  #touch(role: string | readonly string[] | undefined): void {
     clearTimeout(this.#connectionTimer);
-    this.#state = Object.freeze({ connected: true, lastSeenAt: Date.now() });
+    const receiver = role === 'watcher' || role === 'channel';
+    this.#state = Object.freeze({
+      connected: true, deliveryReady: receiver || this.#state.deliveryReady === true, lastSeenAt: Date.now(),
+    });
     this.#connectionTimer = setTimeout(() => {
       this.#connectionTimer = undefined;
+      clearTimeout(this.#deliveryTimer);
+      this.#deliveryTimer = undefined;
       const lastSeenAt = this.#state.lastSeenAt;
       this.#state = Object.freeze(lastSeenAt === undefined
-        ? { connected: false }
-        : { connected: false, lastSeenAt });
+        ? { connected: false, deliveryReady: false }
+        : { connected: false, deliveryReady: false, lastSeenAt });
       this.#notify();
     }, connectionTimeoutMs);
     this.#connectionTimer.unref();
+    if (receiver) {
+      clearTimeout(this.#deliveryTimer);
+      this.#deliveryTimer = setTimeout(() => {
+        this.#deliveryTimer = undefined;
+        this.#state = Object.freeze({ ...this.#state, deliveryReady: false });
+        this.#notify();
+      }, connectionTimeoutMs);
+      this.#deliveryTimer.unref();
+    }
     this.#notify();
   }
 

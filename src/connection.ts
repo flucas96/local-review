@@ -38,6 +38,9 @@ export class BridgeProtocolError extends Error {
 const maximumResponseLength = 10_000_000;
 const requestTimeoutMs = 25_000;
 
+/** Separate callable MCP tools from helpers that can wake Claude with new feedback. */
+export type BridgeClientRole = 'tools' | 'watcher' | 'channel';
+
 /** Narrow a JSON value without trusting data read from disk or HTTP. */
 export function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -205,6 +208,7 @@ export class BridgeClient {
     descriptor: ConnectionDescriptor,
     private readonly descriptorPath: string,
     private readonly signal: AbortSignal,
+    private readonly role: BridgeClientRole = 'tools',
   ) {
     this.descriptor = descriptor;
   }
@@ -235,6 +239,7 @@ export class BridgeClient {
       const headers: Record<string, string> = {
         Authorization: `Bearer ${this.descriptor.token}`,
         Accept: 'application/json',
+        'X-Local-Review-Client': this.role,
       };
       if (update !== undefined) headers['Content-Type'] = 'application/json';
       const response = await fetch(endpoint, {

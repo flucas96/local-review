@@ -308,3 +308,60 @@ test('code navigation remains available during a pending send without changing s
   await settle();
   assert.equal(browser.element('openCode').hidden, true);
 });
+
+test('text composition preserves the active input and delays slash switching until it is committed', async () => {
+  const submissions: ComposerSubmission[] = [];
+  const { browser } = await openComposer(request('first'), async (submission) => { submissions.push(submission); });
+  const input = browser.element('feedback');
+  input.fire('compositionstart');
+  browser.type('/i Erklärung');
+  assert.equal(input.value, '/i Erklärung');
+  assert.equal(browser.element('send').disabled, true);
+  input.fire('keydown', { metaKey: true, key: 'Enter', isComposing: true });
+  await settle();
+  assert.equal(submissions.length, 0);
+
+  input.fire('compositionend');
+  assert.equal(input.value, 'Erklärung');
+  assert.equal(browser.element('send').textContent, 'Änderung anfordern');
+  assert.equal(browser.element('send').disabled, false);
+  browser.element('send').fire('click');
+  await settle();
+  assert.equal(submissions.length, 1);
+  assert.equal(submissions[0]?.intent, 'implement');
+  assert.equal(submissions[0]?.text, 'Erklärung');
+});
+
+test('an empty intermediate composition cannot silently move its code target', async () => {
+  const { composer, browser } = await openComposer();
+  const input = browser.element('feedback');
+  input.fire('compositionstart');
+  await composer.followSelection(request('second'));
+  await settle();
+  assert.equal(browser.element('path').textContent, 'first.ts:4');
+  assert.equal(input.disabled, false);
+
+  browser.type('Erkläre diese Auswahl.');
+  input.fire('compositionend');
+  await settle();
+  assert.equal(browser.element('path').textContent, 'first.ts:4');
+  assert.equal(input.value, 'Erkläre diese Auswahl.');
+  assert.equal(browser.element('selection').hidden, false);
+});
+
+test('a bare summary shortcut explains its missing conversation and works immediately for replies', async () => {
+  const initial = await openComposer();
+  initial.browser.type('/R');
+  assert.equal(initial.browser.element('send').disabled, true);
+  assert.equal(initial.browser.element('modeHint').textContent, '/r in einer bestehenden Unterhaltung senden.');
+
+  const submissions: ComposerSubmission[] = [];
+  const reply = await openComposer(request('reply', { threadId: 'conversation' }), async (submission) => { submissions.push(submission); });
+  reply.browser.type('/R');
+  assert.equal(reply.browser.element('send').disabled, false);
+  reply.browser.element('send').fire('click');
+  await settle();
+  assert.equal(submissions[0]?.threadId, 'conversation');
+  assert.equal(submissions[0]?.intent, 'summarize');
+  assert.equal(submissions[0]?.text, '');
+});

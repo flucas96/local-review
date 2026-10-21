@@ -22,15 +22,19 @@ Open a diff, leave feedback, and keep reviewing. Each submitted comment reaches 
 | **Implement `/i`** | Make the requested change, then return it for your review. |
 | **Summarize `/r`** | Condense the conversation and its remaining decisions. |
 
-Native VS Code comments keep the conversation next to the code. The Review sidebar shows what is waiting, received, in progress, or ready for you. Claude can reply and report progress; **you decide when a thread is resolved**.
+Native VS Code comments keep the conversation next to the code. Each Review list entry shows its filename, line and status. Status-only updates keep existing message controls in place. Claude can reply and report progress; **you decide when a thread is resolved**.
 
 Use the **✓** on a thread or Review list entry to resolve it. Completed conversations disappear from the editor and list. The Review toolbar's **eye** shows them again; **Wieder öffnen** restores an active thread. Nothing is deleted.
 
-If unfocused conversations blend into your editor, run **Local Review: Kommentarfenster hervorheben** once in each project from the Command Palette or Review's **…** menu. Installing the extension alone does not activate these colors. The action adds a distinct thread surface, darker reply field and neutral thread border for the current theme. **Standarddarstellung wiederherstellen** restores the previous colors. VS Code shares these colors with other native comments and Peek results in the same project; high-contrast themes retain their native colors.
+If unfocused conversations blend into your editor, choose the **half-filled circle · Kommentarfenster hervorheben** in the Review toolbar, or run that command from the Command Palette. Activate it once per project; installation alone does not change the colors. It adds a distinct thread surface, darker reply field and neutral border for the current theme. **Standarddarstellung wiederherstellen** restores the previous colors. VS Code shares these colors with other native comments and Peek results in the same project; high-contrast themes retain their native colors.
 
-Write directly beside the changed code: click the gutter **+**, enter `/a`, `/i`, or `/r` followed by your feedback, then use the single **Senden** action. The prefix determines the mode when sending. Existing threads have a native reply field, so the conversation stays attached to its code.
+For a narrower reading area, choose **Review → … → Zentrierte Ansicht**. This toggles VS Code's centered layout, narrowing the source and inline comments together; drag its side boundaries to adjust the width. Native comment width cannot be set separately. Side-by-side diffs and multiple editor groups may expand again with VS Code's default layout settings.
 
-Prefer a separate input? **Local Review: Feedback in Seitenansicht schreiben** opens a compact composer with live mode buttons, saved drafts and selection following. Keep it open and select the next code block; an empty draft follows without moving focus. Written drafts stay pinned and offer an explicit switch. The selected lines remain outlined when you click into the composer. Closing it keeps drafts for **Local Review: Entwurf fortsetzen**. Native inline draft recovery remains managed by VS Code.
+Write directly beside the changed code: click the gutter **+**, enter `/a`, `/i`, or `/r` followed by your feedback, then use the single **Senden** action. The prefix determines the mode when sending. Bare `/r` or `/R` summarizes an existing thread without extra text. Existing threads have a native reply field, so the conversation stays attached to its code.
+
+The gutter **+** focuses its input directly; drafts opened by an extension command may need a click into the input because VS Code's stable API cannot focus that field.
+
+Prefer a separate input? **Local Review: Feedback in Seitenansicht schreiben** opens a compact composer with live mode buttons, saved drafts and selection following. An empty draft follows new selections without moving focus; written drafts stay pinned and offer an explicit switch. Selected lines remain outlined when you click into the composer. Active text composition is preserved before slash switching, and bare `/r` on a new comment explains that it needs an existing conversation. Closing keeps drafts for **Local Review: Entwurf fortsetzen**. Native inline draft recovery remains managed by VS Code.
 
 **Speak on macOS:** click the input, type `/a` or `/i`, then use your Mac's Microphone key or Dictation shortcut. Review the text and choose **Senden**. [Dictation guide →](docs/DICTATION.md)
 
@@ -39,6 +43,8 @@ Code blocks appear in darker rounded cards with a compact file/language header a
 ## Carry the conversation into your PR
 
 Use the **An GitHub-PR übergeben** action in the Review toolbar. Local Review finds the current branch's open PR and prepares an editable preview of available summaries and unresolved questions. Select the content, inspect the exact PR and text, then explicitly publish it. Later handoffs update your managed review comment instead of adding a duplicate.
+
+Edited or failed handoffs can be resumed after closing the preview during the same VS Code session. **Entwurf fortsetzen** keeps the original snapshot; **Neue Momentaufnahme** prepares current content. This recovery ends when VS Code reloads. Editing published text clearly marks it as unpublished again.
 
 `/r` still summarizes a local conversation; it never publishes to GitHub. The first handoff uses a PR discussion comment with captured code locations, because local changes may not match the pushed PR's diff lines. Publishing requires the [GitHub CLI](https://cli.github.com/) installed and signed in. [PR handoff guide →](docs/PR-HANDOFF.md)
 
@@ -58,9 +64,11 @@ Send a comment and your connected Claude session receives it automatically. Clau
 
 Hook messages identify the file, review mode and actual feedback. Ordinary tool calls and Stop hooks do not repeatedly announce the same event in one session. Starting or resuming Claude explicitly recovers unfinished work; delivery is still acknowledged only through Claude's review tools.
 
+The status bar distinguishes **Review · Verbinden**, **Review · Zustellung pausiert**, and an active feedback receiver. Readiness is separate from Claude acknowledging a comment. After upgrading, reconnect Claude once so older helpers can report the new readiness signal. A window reload reuses this project's managed **Claude · Local Review** terminal instead of creating a second session.
+
 Connection files and submitted threads live in VS Code's workspace storage. The extension passes configuration to the session it launches, without editing your repository's `.claude` files or `.mcp.json`. Claude's existing tool permissions still apply; `/a` and `/r` are instructions to avoid edits, not a separate permission sandbox.
 
-Code context is captured when you submit feedback. If an old location cannot be identified safely, the thread opens its saved context. Renamed files appear as a deletion and an addition.
+The command, editor action and keyboard shortcut capture code when opening a draft; that context stays fixed if the file changes while you type. VS Code's own gutter **+** exposes a new draft only when it is sent, so that path captures code at send time. Existing replies retain their thread's context. If a location cannot be identified safely, the thread opens its saved excerpt. Renamed files appear as a deletion and an addition.
 
 ## Preview status
 
@@ -68,7 +76,7 @@ This is an early preview. Native conversations have distinct avatars and compact
 
 The [end-to-end verification report](docs/QA-2026-10-21.md) distinguishes real VS Code clicks, controlled failure simulations and live Claude results, with unverified flows left open.
 
-The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks missing Claude-to-thread navigation, unread replies, delivery readiness, and support for launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
+The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks follow-up work on Claude-to-thread navigation, unread replies, connection diagnostics, and launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
 
 - One local workspace folder and one intended agent session.
 - The background watcher expires after 24 hours; reconnect or send Claude a prompt to rearm it.

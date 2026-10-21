@@ -81,7 +81,58 @@ test('requires authentication and publishes a random-port loopback descriptor', 
   assert.equal(health.headers.get('access-control-allow-origin'), null);
   assert.equal(health.headers.get('cache-control'), 'no-store');
   assert.equal(bridge.state.connected, true);
+  assert.equal(bridge.state.deliveryReady, false);
   assert.equal(typeof bridge.state.lastSeenAt, 'number');
+});
+
+test('MCP tools and older clients cannot claim that automatic delivery is ready', async (t) => {
+  const { bridge, store, headers } = await fixture(t);
+  const thread = await store.submit(anchor(), 'Wait for an actual receiver.', 'ask');
+  for (const role of [undefined, 'tools', 'unknown']) {
+    const response = await fetch(`${bridge.descriptor.url}/pending`, {
+      headers: { ...headers, ...(role === undefined ? {} : { 'X-Local-Review-Client': role }) },
+    });
+    assert.equal(response.status, 200);
+    await response.json();
+    assert.equal(bridge.state.connected, true);
+    assert.equal(bridge.state.deliveryReady, false);
+  }
+  const response = await fetch(`${bridge.descriptor.url}/pending`, {
+    headers: { ...headers, 'X-Local-Review-Client': 'watcher' },
+  });
+  await response.json();
+  assert.equal(bridge.state.deliveryReady, true);
+  assert.equal(store.events[0]?.acknowledged, false);
+  assert.equal(store.threads.find((candidate) => candidate.id === thread.id)?.status, 'queued');
+});
+
+test('delivery readiness expires independently while MCP tool heartbeats keep the connection alive', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const { bridge, headers } = await fixture(t);
+  const watcher = await fetch(`${bridge.descriptor.url}/pending`, {
+    headers: { ...headers, 'X-Local-Review-Client': 'watcher' },
+  });
+  await watcher.json();
+  assert.equal(bridge.state.deliveryReady, true);
+
+  t.mock.timers.tick(30_000);
+  const tools = await fetch(`${bridge.descriptor.url}/health`, {
+    headers: { ...headers, 'X-Local-Review-Client': 'tools' },
+  });
+  await tools.json();
+  t.mock.timers.tick(15_001);
+  assert.equal(bridge.state.connected, true);
+  assert.equal(bridge.state.deliveryReady, false);
+
+  const recovered = await fetch(`${bridge.descriptor.url}/pending`, {
+    headers: { ...headers, 'X-Local-Review-Client': 'channel' },
+  });
+  await recovered.json();
+  assert.equal(bridge.state.connected, true);
+  assert.equal(bridge.state.deliveryReady, true);
+  t.mock.timers.tick(45_001);
+  assert.equal(bridge.state.connected, false);
+  assert.equal(bridge.state.deliveryReady, false);
 });
 
 test('keeps acknowledged unfinished work recoverable until answered or resolved', async (t) => {

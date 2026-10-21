@@ -49,7 +49,7 @@ function savedAppearance(storage: vscode.Memento): SavedAppearance | undefined {
   return { rootAbsent: saved['rootAbsent'], themes: validated };
 }
 
-/** Offer explicit project-only contrast changes with ownership-aware undo. */
+/** Offer native layout controls and project-only contrast changes with ownership-aware undo. */
 export function registerReviewAppearance(context: vscode.ExtensionContext): vscode.Disposable {
   let pending = Promise.resolve();
   const configuration = (): vscode.WorkspaceConfiguration => vscode.workspace.getConfiguration('workbench');
@@ -59,11 +59,15 @@ export function registerReviewAppearance(context: vscode.ExtensionContext): vsco
   function command(id: string, work: () => Promise<void>): vscode.Disposable {
     return vscode.commands.registerCommand(`localReview.${id}`, () => {
       pending = pending.then(work).catch((error: unknown) => {
-        void vscode.window.showErrorMessage(error instanceof Error ? error.message : 'Die Kommentarfarben konnten nicht geändert werden.');
+        void vscode.window.showErrorMessage(error instanceof Error ? error.message : 'Die Darstellung konnte nicht geändert werden.');
       });
       return pending;
     });
   }
+
+  const centered = command('toggleCenteredLayout', async () => {
+    await vscode.commands.executeCommand('workbench.action.toggleCenteredLayout');
+  });
 
   const enhance = command('enhanceContrast', async () => {
     const kind = vscode.window.activeColorTheme.kind;
@@ -132,5 +136,5 @@ export function registerReviewAppearance(context: vscode.ExtensionContext): vsco
     await context.workspaceState.update(storageKey, undefined);
     void vscode.window.showInformationMessage('Kommentarfarben wiederhergestellt.');
   });
-  return { dispose(): void { enhance.dispose(); reset.dispose(); } };
+  return { dispose(): void { centered.dispose(); enhance.dispose(); reset.dispose(); } };
 }

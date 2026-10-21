@@ -1,8 +1,12 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { mkdir, rename, unlink, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import * as vscode from 'vscode';
 import type { ReviewBridge } from './contracts.js';
+import { record } from './connection.js';
 import { requireNodeRuntime, resolveExecutable } from './executables.js';
+
+const reviewTerminalName = 'Claude · Local Review';
 
 /** Quote a single argument for the POSIX shell used by Claude command hooks. */
 export function quotePosix(value: string): string {
@@ -16,7 +20,26 @@ function terminalCommand(executable: string, args: readonly string[]): string {
 
 /** Write a private runtime file outside the reviewed source repository. */
 async function writePrivateJson(path: string, value: unknown): Promise<void> {
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+    await rename(temporary, path);
+  } finally {
+    await unlink(temporary).catch((error: unknown) => {
+      if (record(error)?.code !== 'ENOENT') throw error;
+    });
+  }
+}
+
+/** Reuse this project's managed terminal when VS Code reloads the extension host. */
+function existingReviewTerminal(workspaceRoot: string): vscode.Terminal | undefined {
+  return vscode.window.terminals.findLast((candidate) => {
+    const options = candidate.creationOptions;
+    if (options.name !== reviewTerminalName || candidate.exitStatus !== undefined) return false;
+    const cwd = 'cwd' in options ? options.cwd : undefined;
+    const path = typeof cwd === 'string' ? cwd : cwd?.scheme === 'file' ? cwd.fsPath : undefined;
+    return path !== undefined && resolve(path) === resolve(workspaceRoot);
+  });
 }
 
 /** Generate session-scoped integration files without changing Claude user settings. */
@@ -58,7 +81,7 @@ export function registerClaudeLauncher(
   bridge: ReviewBridge,
   storagePath: string,
 ): vscode.Disposable {
-  let terminal: vscode.Terminal | undefined;
+  let terminal: vscode.Terminal | undefined = existingReviewTerminal(bridge.descriptor.workspaceRoot);
   let sessionEnded = false;
   let launching = false;
   const closed = vscode.window.onDidCloseTerminal(closedTerminal => {
@@ -75,14 +98,15 @@ export function registerClaudeLauncher(
       if (process.platform === 'win32') {
         throw new Error('Die automatische Claude-Verbindung dieser ersten Version unterstützt macOS und Linux. Windows folgt nach einer eigenen Prüfung.');
       }
+      terminal ??= existingReviewTerminal(bridge.descriptor.workspaceRoot);
       if (terminal !== undefined) {
         if (sessionEnded) {
           terminal = undefined;
         } else {
           const show = { label: 'Terminal anzeigen', description: 'Die bestehende Unterhaltung öffnen', restart: false };
           const restart = { label: 'Verbindung neu starten', description: 'Die laufende Review-Sitzung beenden und neu verbinden', restart: true };
-          const action = await vscode.window.showQuickPick(bridge.state.connected ? [show, restart] : [restart, show], {
-            title: bridge.state.connected ? 'Claude Code ist verbunden' : 'Claude-Verbindung wiederherstellen',
+          const action = await vscode.window.showQuickPick(bridge.state.deliveryReady === true ? [show, restart] : [restart, show], {
+            title: bridge.state.deliveryReady === true ? 'Claude Code ist verbunden' : 'Automatische Zustellung wiederherstellen',
           });
           if (action === undefined) return;
           if (!action.restart) {
@@ -109,7 +133,7 @@ export function registerClaudeLauncher(
       else args.push('--dangerously-load-development-channels', 'server:local-review');
       if (selection.resume) args.push('--continue');
       replaceTerminal?.dispose();
-      terminal = vscode.window.createTerminal({ name: 'Claude · Local Review', cwd: bridge.descriptor.workspaceRoot });
+      terminal = vscode.window.createTerminal({ name: reviewTerminalName, cwd: bridge.descriptor.workspaceRoot });
       sessionEnded = false;
       terminal.show();
       terminal.sendText(terminalCommand(executable, args));

@@ -14,16 +14,18 @@ import { createReviewStore } from '../src/store.js';
 
 interface ChannelFixture {
   readonly store: ReviewStore;
+  readonly bridge: ReviewBridge;
   readonly connect: () => Promise<void>;
   readonly waitForReview: (eventId: string, deliveryCount?: number) => Promise<string>;
   readonly restartBridge: () => Promise<void>;
   readonly deliveries: ReadonlyMap<string, readonly string[]>;
   readonly reply: (eventId: string, text: string) => Promise<void>;
   readonly listTools: () => Promise<ListToolsResult>;
+  readonly listPending: () => Promise<void>;
 }
 
 /** Connect the packaged MCP server to a real client without involving an LLM. */
-async function fixture(t: TestContext): Promise<ChannelFixture> {
+async function fixture(t: TestContext, noPush = false): Promise<ChannelFixture> {
   const channelPath = path.resolve('dist', 'channel.cjs');
   await access(channelPath);
   const root = await mkdtemp(path.join(tmpdir(), 'local-review-channel-'));
@@ -48,7 +50,7 @@ async function fixture(t: TestContext): Promise<ChannelFixture> {
     for (const listener of listeners) listener();
   };
   const transport = new StdioClientTransport({
-    command: process.execPath, args: [channelPath, '--connection', connectionPath], stderr: 'pipe',
+    command: process.execPath, args: [channelPath, '--connection', connectionPath, ...(noPush ? ['--no-push'] : [])], stderr: 'pipe',
   });
   transport.stderr?.on('data', () => {});
   t.after(async () => {
@@ -79,7 +81,12 @@ async function fixture(t: TestContext): Promise<ChannelFixture> {
 
   return {
     store, deliveries, waitForReview,
+    get bridge() { return bridges.at(-1) ?? first; },
     listTools: () => client.listTools(),
+    listPending: async () => {
+      const result = await client.callTool({ name: 'list_pending_reviews', arguments: {} });
+      assert.notEqual(result.isError, true);
+    },
     connect: () => client.connect(transport),
     reply: async (eventId, text) => {
       const response = await client.callTool({ name: 'reply_to_review', arguments: { event_id: eventId, text, status: 'answered' } });
@@ -103,7 +110,7 @@ function anchor(): CodeAnchor {
 }
 
 test('recovers acknowledged unfinished reviews when the MCP channel starts', { timeout: 15_000 }, async (t) => {
-  const { store, connect, waitForReview, deliveries } = await fixture(t);
+  const { store, bridge, connect, waitForReview, deliveries } = await fixture(t);
   const received = await store.submit(anchor(), 'An accepted question.', 'ask');
   await store.updateFromAgent({ eventId: received.latestEventId, status: 'received' });
   const working = await store.submit(anchor(), 'An interrupted implementation.', 'implement');
@@ -119,6 +126,20 @@ test('recovers acknowledged unfinished reviews when the MCP channel starts', { t
   const next = await store.submit(anchor(), 'Feedback submitted after recovery.', 'ask');
   assert.ok((await waitForReview(next.latestEventId)).includes('Feedback submitted after recovery.'));
   assert.equal(deliveries.has(answered.latestEventId), false);
+  assert.equal(bridge.state.deliveryReady, true);
+});
+
+test('the hook-mode MCP process exposes tools without claiming an active feedback receiver', { timeout: 15_000 }, async (t) => {
+  const { store, bridge, connect, deliveries, listPending } = await fixture(t, true);
+  const thread = await store.submit(anchor(), 'This still needs an active hook.', 'ask');
+  await connect();
+  await listPending();
+
+  assert.equal(bridge.state.connected, true);
+  assert.equal(bridge.state.deliveryReady, false);
+  assert.equal(deliveries.size, 0);
+  assert.equal(store.events[0]?.acknowledged, false);
+  assert.equal(store.threads.find((candidate) => candidate.id === thread.id)?.status, 'queued');
 });
 
 test('recovers unfinished work again after the extension connection changes', { timeout: 15_000 }, async (t) => {

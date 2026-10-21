@@ -1,0 +1,38 @@
+[
+  {
+    "eventId": "5fdc8999-68c8-443f-a029-4e3b92912f81",
+    "threadId": "1296fa6e-8c4b-4d0b-b25e-73f2c937ff13",
+    "intent": "ask",
+    "path": "src/review_lab/models.py",
+    "startLine": 70,
+    "endLine": 78,
+    "hookExit": 2,
+    "acknowledged": true,
+    "response": "controlled simulation",
+    "timestamp": "2026-10-21T15:53:31.120Z"
+  },
+  {
+    "eventId": "f91b4d33-a1bc-4e1d-97bc-59220e3bd00a",
+    "threadId": "1296fa6e-8c4b-4d0b-b25e-73f2c937ff13",
+    "intent": "summarize",
+    "path": "src/review_lab/models.py",
+    "startLine": 70,
+    "endLine": 78,
+    "hookExit": 2,
+    "acknowledged": true,
+    "response": "controlled simulation",
+    "timestamp": "2026-10-21T15:54:33.246Z"
+  },
+  {
+    "eventId": "c701ed9c-8e19-41ba-aa3e-3819df8dc31d",
+    "threadId": "1296fa6e-8c4b-4d0b-b25e-73f2c937ff13",
+    "intent": "implement",
+    "path": "src/review_lab/models.py",
+    "startLine": 70,
+    "endLine": 78,
+    "hookExit": 2,
+    "acknowledged": true,
+    "response": "controlled simulation",
+    "timestamp": "2026-10-21T15:55:08.611Z"
+  }
+]

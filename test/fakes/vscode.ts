@@ -69,9 +69,9 @@ export class FakeElement {
   }
 
   /** Dispatch a browser event without allowing clicks on disabled controls. */
-  fire(type: string): void {
+  fire(type: string, event: Partial<BrowserEvent> = {}): void {
     if (this.disabled) return;
-    for (const listener of this.listeners.get(type) ?? []) listener({ preventDefault(): void {} });
+    for (const listener of this.listeners.get(type) ?? []) listener({ preventDefault(): void {}, ...event });
   }
 }
 
@@ -195,6 +195,17 @@ export class Uri {
   /** Create a project file resource without interpreting path characters as URI syntax. */
   static file(path: string): Uri { return new Uri('file', path); }
 
+  /** Parse externally opened links so tests can verify the exact publication target. */
+  static parse(value: string): Uri {
+    const url = new URL(value);
+    return new Uri(url.protocol.slice(0, -1), url.pathname, url.search.slice(1), url.host, url.hash.slice(1));
+  }
+
+  /** Build extension-owned asset URIs without depending on a real extension install. */
+  static joinPath(base: Uri, ...segments: string[]): Uri {
+    return new Uri(base.scheme, `${base.path}/${segments.join('/')}`);
+  }
+
   /** Create a readonly preview resource from explicit components. */
   static from(components: { readonly scheme: string; readonly path?: string; readonly query?: string; readonly authority?: string; readonly fragment?: string }): Uri {
     return new Uri(components.scheme, components.path ?? '', components.query, components.authority, components.fragment);
@@ -214,11 +225,19 @@ export class Range {
   readonly start: { readonly line: number; readonly character: number };
   readonly end: { readonly line: number; readonly character: number };
 
-  constructor(startLine: number, startCharacter: number, endLine: number, endCharacter: number) {
-    this.start = { line: startLine, character: startCharacter };
-    this.end = { line: endLine, character: endCharacter };
+  constructor(startLine: number, startCharacter: number, endLine: number, endCharacter: number);
+  constructor(start: Range['start'], end: Range['end']);
+  constructor(start: number | Range['start'], end: number | Range['end'], endLine?: number, endCharacter?: number) {
+    this.start = typeof start === 'number' ? { line: start, character: Number(end) } : start;
+    this.end = typeof end === 'number' ? { line: endLine ?? 0, character: endCharacter ?? 0 } : end;
   }
+
+  /** Represent caret-only input consistently with VS Code selection events. */
+  get isEmpty(): boolean { return this.start.line === this.end.line && this.start.character === this.end.character; }
 }
+
+/** Selection coordinates used by explicit native comment creation. */
+export class Selection extends Range {}
 
 /** Carry rendered Markdown and its command trust boundary through real navigation. */
 export class MarkdownString {
@@ -226,17 +245,42 @@ export class MarkdownString {
   supportThemeIcons: boolean | undefined;
   supportHtml: boolean | undefined;
 
-  constructor(readonly value = '') {}
+  constructor(public value = '') {}
+
+  /** Keep text-only tree tooltips available for assertions. */
+  appendText(text: string): MarkdownString { this.value += text; return this; }
 }
 
 /** In-memory document preserving unsaved source separately from immutable previews. */
 export class FakeTextDocument {
   isDirty = false;
+  version = 1;
 
   constructor(readonly uri: Uri, public text: string, public languageId = 'plaintext', readonly isReadonly = false) {}
 
   /** Return the current in-memory source, including unsaved editor changes. */
-  getText(): string { return this.text; }
+  getText(range?: Range): string {
+    return range === undefined ? this.text : this.text.slice(this.offsetAt(range.start), this.offsetAt(range.end));
+  }
+
+  /** Count physical source lines, including an empty last line. */
+  get lineCount(): number { return this.text.split('\n').length; }
+
+  /** Return source content needed for full-line native selections. */
+  lineAt(line: number): { readonly text: string } { return { text: this.text.split('\n')[line] ?? '' }; }
+
+  /** Convert editor coordinates into offsets for immutable source capture. */
+  offsetAt(position: Range['start']): number {
+    const lines = this.text.split('\n');
+    return lines.slice(0, position.line).reduce((length, line) => length + line.length + 1, 0)
+      + Math.min(position.character, lines[position.line]?.length ?? 0);
+  }
+
+  /** Convert tracked offsets back to live editor coordinates. */
+  positionAt(offset: number): Range['start'] {
+    const lines = this.text.slice(0, offset).split('\n');
+    return { line: lines.length - 1, character: lines.at(-1)?.length ?? 0 };
+  }
 
   /** Clamp the production selection to real line lengths as the editor would. */
   validateRange(range: Range): Range {
@@ -252,6 +296,124 @@ interface FakeTextEditor {
   readonly viewColumn: number;
 }
 
+/** Native editor surface for controller tests with observable selection decoration. */
+export class FakeInteractiveEditor implements FakeTextEditor {
+  selection = new Selection(0, 0, 0, 0);
+  readonly decorations: unknown[][] = [];
+  readonly revealed: Range[] = [];
+
+  constructor(readonly document: FakeTextDocument, readonly viewColumn = 1) {}
+
+  /** Record persistent review highlights independently of text focus. */
+  setDecorations(_decoration: unknown, ranges: unknown[]): void { this.decorations.push(ranges); }
+
+  /** Record navigation without editing source. */
+  revealRange(range: Range): void { this.revealed.push(range); }
+}
+
+/** Simple lifecycle callback matching native editor disposables. */
+export class Disposable {
+  constructor(private readonly callback: () => void) {}
+  dispose(): void { this.callback(); }
+  static from(...items: readonly { dispose(): void }[]): Disposable {
+    return new Disposable(() => { for (const item of items) item.dispose(); });
+  }
+}
+
+/** Theme-aware values remain opaque in controller tests. */
+export class ThemeColor { constructor(readonly id: string) {} }
+export class ThemeIcon { constructor(readonly id: string) {} }
+
+/** Sidebar entry supporting the metadata created by the real controller. */
+export class TreeItem {
+  id?: string;
+  description?: string;
+  contextValue?: string;
+  iconPath?: unknown;
+  command?: unknown;
+  tooltip?: unknown;
+  constructor(readonly label: string, readonly collapsibleState: number) {}
+}
+
+/** Observe native thread identity and assignment, including unnecessary comment redraws. */
+export class FakeCommentThread {
+  disposed = false;
+  commentsWrites = 0;
+  collapsibleState = 0;
+  canReply: boolean | { name: string } = true;
+  contextValue: string | undefined;
+  state: number | undefined;
+  label: string | undefined;
+  private rendered: readonly vscode.Comment[];
+
+  constructor(readonly uri: Uri, public range: Range, comments: readonly vscode.Comment[]) { this.rendered = comments; }
+  get comments(): readonly vscode.Comment[] { return this.rendered; }
+  set comments(value: readonly vscode.Comment[]) { this.commentsWrites += 1; this.rendered = value; }
+  dispose(): void { this.disposed = true; }
+}
+
+/** Native controller recording threads created by the production command handlers. */
+export class FakeCommentController {
+  readonly threads: FakeCommentThread[] = [];
+  options: unknown;
+  commentingRangeProvider: unknown;
+  createCommentThread(uri: Uri, range: Range, comments: readonly vscode.Comment[]): FakeCommentThread {
+    const thread = new FakeCommentThread(uri, range, comments);
+    this.threads.push(thread);
+    return thread;
+  }
+  dispose(): void { for (const thread of this.threads) thread.dispose(); }
+}
+
+export const comments = {
+  controllers: [] as FakeCommentController[],
+  createCommentController(): FakeCommentController {
+    const controller = new FakeCommentController();
+    this.controllers.push(controller);
+    return controller;
+  },
+};
+
+export const CommentMode = { Preview: 0, Editing: 1 } as const;
+export const CommentThreadState = { Unresolved: 0, Resolved: 1 } as const;
+export const CommentThreadCollapsibleState = { Collapsed: 0, Expanded: 1 } as const;
+export const TreeItemCollapsibleState = { None: 0 } as const;
+export const OverviewRulerLane = { Center: 2 } as const;
+export const DecorationRangeBehavior = { ClosedClosed: 1 } as const;
+export const TextEditorRevealType = { InCenterIfOutsideViewport: 2 } as const;
+export const TextEditorSelectionChangeKind = { Keyboard: 1, Mouse: 2, Command: 3 } as const;
+export class TabInputTextDiff {
+  constructor(readonly original: Uri, readonly modified: Uri) {}
+}
+
+/** Event sources deliver real document lifecycle events to controller subscriptions. */
+export const editorEvents = {
+  opened: new EventEmitter<vscode.TextDocument>(),
+  changed: new EventEmitter<vscode.TextDocumentChangeEvent>(),
+  selection: new EventEmitter<vscode.TextEditorSelectionChangeEvent>(),
+  visible: new EventEmitter<readonly vscode.TextEditor[]>(),
+  focus: new EventEmitter<vscode.WindowState>(),
+};
+
+/** Integrated terminal surface preserving identity across launcher recreation. */
+export class FakeTerminal {
+  disposed = false;
+  showCalls = 0;
+  readonly sendTextCalls: { readonly text: string; readonly shouldExecute: boolean | undefined }[] = [];
+  exitStatus: vscode.TerminalExitStatus | undefined;
+  readonly name: string;
+
+  constructor(readonly creationOptions: vscode.TerminalOptions) { this.name = creationOptions.name ?? 'Terminal'; }
+  show(): void { this.showCalls += 1; }
+  sendText(text: string, shouldExecute?: boolean): void { this.sendTextCalls.push({ text, shouldExecute }); }
+  dispose(): void { this.disposed = true; }
+}
+
+export const terminalEvents = {
+  closed: new EventEmitter<vscode.Terminal>(),
+  ended: new EventEmitter<vscode.TerminalShellExecutionEndEvent>(),
+};
+
 interface FakeContentProvider {
   provideTextDocumentContent(uri: Uri): string | PromiseLike<string>;
 }
@@ -265,18 +427,28 @@ export const workspace = {
   configurationWorkspaceValues: new Map<string, unknown>(),
   configurationWrites: [] as { readonly key: string; readonly value: unknown; readonly target: number | undefined }[],
   beforeConfigurationUpdate: undefined as (() => Promise<void>) | undefined,
+  onDidOpenTextDocument: editorEvents.opened.event,
+  onDidChangeTextDocument: editorEvents.changed.event,
+  fs: {
+    /** Treat loaded source documents as existing local files in native controller tests. */
+    async stat(uri: Uri): Promise<void> {
+      if (!workspace.textDocuments.some((document) => document.uri.toString() === uri.toString())) throw new Error('Missing file');
+    },
+  },
 
   /** Keep effective settings separate from project overrides so inheritance can be verified. */
   getConfiguration(section: string): {
     get<T>(key: string): T | undefined;
+    get<T>(key: string, defaultValue: T): T;
     inspect<T>(key: string): { readonly workspaceValue: T | undefined };
     update(key: string, value: unknown, target?: number): Promise<void>;
   } {
     return {
-      get: <T>(key: string): T | undefined => {
+      get: <T>(key: string, defaultValue?: T): T => {
         const full = `${section}.${key}`;
         return (this.configurationWorkspaceValues.has(full)
-          ? this.configurationWorkspaceValues.get(full) : this.configurationValues.get(full)) as T | undefined;
+          ? this.configurationWorkspaceValues.get(full) : this.configurationValues.has(full)
+            ? this.configurationValues.get(full) : defaultValue) as T;
       },
       inspect: <T>(key: string): { readonly workspaceValue: T | undefined } => ({
         workspaceValue: this.configurationWorkspaceValues.get(`${section}.${key}`) as T | undefined,
@@ -328,6 +500,12 @@ export const commands = {
   },
 };
 
+/** Record intentional browser navigation without contacting external services. */
+export const env = {
+  opened: [] as Uri[],
+  async openExternal(uri: Uri): Promise<boolean> { this.opened.push(uri); return true; },
+};
+
 /** Simulate installed language IDs while letting production code choose aliases. */
 export const languages = {
   async getLanguages(): Promise<string[]> { return ['plaintext', 'javascript', 'typescript', 'python']; },
@@ -337,15 +515,43 @@ export const languages = {
   },
 };
 
-export const ViewColumn = { Beside: -2, One: 1 } as const;
+export const ViewColumn = { Active: -1, Beside: -2, One: 1 } as const;
 export const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3 } as const;
 export const ColorThemeKind = { Light: 1, Dark: 2, HighContrast: 3, HighContrastLight: 4 } as const;
+export const ProgressLocation = { Notification: 15 } as const;
+interface FakeTreeView {
+  title: string;
+  description: string;
+  message: string;
+  readonly provider: vscode.TreeDataProvider<vscode.TreeItem>;
+  dispose(): void;
+}
 export const window = {
   activeColorTheme: { kind: ColorThemeKind.Dark as number },
   panels: [] as FakePanel[],
   errors: [] as string[],
   information: [] as string[],
   visibleTextEditors: [] as FakeTextEditor[],
+  activeTextEditor: undefined as FakeInteractiveEditor | undefined,
+  terminals: [] as FakeTerminal[],
+  onDidCloseTerminal: terminalEvents.closed.event,
+  onDidEndTerminalShellExecution: terminalEvents.ended.event,
+  createTerminal(options: vscode.TerminalOptions): FakeTerminal {
+    const terminal = new FakeTerminal(options);
+    this.terminals.push(terminal);
+    return terminal;
+  },
+  trees: [] as FakeTreeView[],
+  tabGroups: { all: [] as { readonly viewColumn: number; readonly tabs: { readonly input: unknown }[] }[] },
+  onDidChangeVisibleTextEditors: editorEvents.visible.event,
+  onDidChangeTextEditorSelection: editorEvents.selection.event,
+  onDidChangeWindowState: editorEvents.focus.event,
+  createTreeView(_id: string, options: { readonly treeDataProvider: vscode.TreeDataProvider<vscode.TreeItem> }): FakeTreeView {
+    const tree = { title: '', description: '', message: '', provider: options.treeDataProvider, dispose(): void {} };
+    this.trees.push(tree);
+    return tree;
+  },
+  createTextEditorDecorationType(): Disposable { return new Disposable(() => undefined); },
   shownDocuments: [] as { readonly document: FakeTextDocument; readonly options: vscode.TextDocumentShowOptions | undefined }[],
   statusMessages: [] as string[],
   quickPicks: [] as (readonly vscode.QuickPickItem[])[],
@@ -360,17 +566,21 @@ export const window = {
   async showInformationMessage(message: string): Promise<void> { this.information.push(message); },
 
   /** Choose or cancel an actual navigation picker without creating synthetic command arguments. */
-  async showQuickPick<T extends vscode.QuickPickItem>(items: readonly T[]): Promise<T | undefined> {
+  async showQuickPick<T extends vscode.QuickPickItem>(items: readonly T[], options?: vscode.QuickPickOptions): Promise<T | T[] | undefined> {
     this.quickPicks.push(items);
-    return this.quickPickIndex === undefined ? undefined : items[this.quickPickIndex];
+    const selected = this.quickPickIndex === undefined ? undefined : items[this.quickPickIndex];
+    return selected === undefined ? undefined : options?.canPickMany === true ? [selected] : selected;
   },
+
+  /** Execute actual host work while leaving VS Code's progress presentation opaque. */
+  async withProgress<T>(_options: vscode.ProgressOptions, task: () => Promise<T>): Promise<T> { return await task(); },
 
   /** Record only completed reveals so command completion can be tested accurately. */
   async showTextDocument(document: FakeTextDocument, options?: vscode.TextDocumentShowOptions): Promise<FakeTextEditor> {
     await this.beforeShow?.();
     this.shownDocuments.push({ document, options });
     const editor = this.visibleTextEditors.find((candidate) => candidate.document.uri.toString() === document.uri.toString())
-      ?? { document, viewColumn: options?.viewColumn ?? ViewColumn.One };
+      ?? new FakeInteractiveEditor(document, options?.viewColumn ?? ViewColumn.One);
     if (!this.visibleTextEditors.includes(editor)) this.visibleTextEditors.push(editor);
     return editor;
   },
@@ -414,6 +624,10 @@ export function resetFakeWindow(): void {
   window.errors.length = 0;
   window.information.length = 0;
   window.visibleTextEditors.length = 0;
+  window.activeTextEditor = undefined;
+  window.terminals.length = 0;
+  window.trees.length = 0;
+  window.tabGroups.all.length = 0;
   window.shownDocuments.length = 0;
   window.statusMessages.length = 0;
   window.quickPicks.length = 0;
@@ -432,6 +646,11 @@ export function resetFakeEditor(): void {
   workspace.configurationWrites.length = 0;
   workspace.beforeConfigurationUpdate = undefined;
   commands.handlers.clear();
+  env.opened.length = 0;
+  for (const controller of comments.controllers) controller.dispose();
+  comments.controllers.length = 0;
+  for (const event of Object.values(editorEvents)) event.dispose();
+  for (const event of Object.values(terminalEvents)) event.dispose();
 }
 
 /** Drain host messages and ordered persistence microtasks without wall-clock sleeps. */

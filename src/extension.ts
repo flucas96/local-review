@@ -33,10 +33,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     status.command = 'localReview.startClaude';
     const updateStatus = (): void => {
       const waiting = store.pendingEvents.length;
-      status.text = `${bridge.state.connected ? '$(comment-discussion)' : '$(debug-disconnect)'} Review${waiting ? ` · ${waiting} wartet` : ''}`;
-      status.tooltip = bridge.state.connected
-        ? 'Lokale Verbindung aktiv. Kommentare bleiben wartend, bis Claude sie ausdrücklich bestätigt.'
-        : 'Mit Claude Code verbinden. Abgeschickte Kommentare bleiben bis zur Bestätigung gespeichert.';
+      const ready = bridge.state.deliveryReady === true;
+      const label = !bridge.state.connected ? '$(debug-disconnect) Review · Verbinden'
+        : ready ? '$(comment-discussion) Review' : '$(warning) Review · Zustellung pausiert';
+      status.text = `${label}${waiting ? ` · ${waiting} wartet` : ''}`;
+      status.tooltip = !bridge.state.connected
+        ? 'Mit Claude Code verbinden. Abgeschickte Kommentare bleiben bis zur Bestätigung gespeichert.'
+        : ready ? 'Automatische Zustellung aktiv. Claude bestätigt jeden Kommentar separat.'
+          : 'Claude-Verbindung vorhanden. Die automatische Zustellung ist noch nicht aktiv. Zum Wiederverbinden klicken.';
       status.show();
     };
     context.subscriptions.push(status, store.onChange(updateStatus), bridge.onChange(updateStatus));

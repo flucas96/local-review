@@ -367,6 +367,7 @@ main { max-width: 620px; margin: auto; } .topbar { display: flex; align-items: c
 .selection { border: 1px solid var(--review-accent); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; background: var(--review-tint); font-size: 11px; } .selection p { margin: 0 0 5px; } .selection button { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); } .selection[hidden], details[hidden] { display: none; }
 .compose-card { border: 1px solid var(--review-line); border-radius: 11px; background: var(--review-surface); box-shadow: 0 3px 12px #00000012; overflow: hidden; } .compose-card:focus-within { border-color: var(--vscode-focusBorder); } .compose-toolbar { padding: 7px 8px 0; } .modes { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; border-radius: 7px; background: var(--vscode-editor-background); } button { font: inherit; font-size: 11px; cursor: pointer; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; min-height: 26px; } button:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
 .mode { color: var(--vscode-descriptionForeground); background: transparent; min-height: 26px; } .mode:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } .mode[aria-pressed="true"] { color: var(--vscode-foreground); background: var(--review-tint); border-color: var(--review-accent); font-weight: 600; } kbd { color: var(--vscode-descriptionForeground); font: 10px var(--review-font-code); margin-left: 5px; }
+.mode-hint { margin: 8px 12px 0; color: var(--vscode-descriptionForeground); font-size: 11px; }
 textarea { display: block; width: calc(100% - 16px); min-height: 90px; max-height: 180px; field-sizing: content; resize: vertical; border-radius: 5px; border: 1px solid transparent; color: var(--vscode-foreground); background: transparent; margin: 7px 8px 0; padding: 7px 5px; font: inherit; line-height: 1.6; } textarea::placeholder { color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground)); } textarea:disabled { opacity: .7; }
 .footer { display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; align-items: center; border-top: 1px solid var(--review-line); padding: 7px 9px; margin-top: 5px; } .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; max-width: 100%; margin-left: auto; } .muted { color: var(--vscode-descriptionForeground); font-size: 10px; } #saved { flex: 1 1 100px; } #send { display: inline-flex; align-items: center; gap: 6px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); border: 1px solid var(--vscode-contrastActiveBorder, transparent); border-radius: 6px; min-height: 28px; padding: 4px 10px; font-weight: 600; } #send::after { content: ''; width: 6px; height: 6px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); margin: 0 2px 0 0; } #send:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); } button:disabled { cursor: default; opacity: .5; } #discard { color: var(--vscode-descriptionForeground); background: transparent; padding: 3px 5px; } #discard:hover:not(:disabled) { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } #error { color: var(--vscode-errorForeground); margin: 8px 2px 0; font-size: 12px; } #error:empty { display: none; } #shortcut { white-space: nowrap; font: 10px var(--review-font-code); padding: 1px 4px; border: 1px solid var(--review-line); border-radius: 4px; }
 .vscode-high-contrast .compose-card, .vscode-high-contrast-light .compose-card, .vscode-high-contrast details, .vscode-high-contrast-light details { border-color: var(--vscode-contrastBorder); box-shadow: none; } .vscode-high-contrast .mode[aria-pressed="true"], .vscode-high-contrast-light .mode[aria-pressed="true"] { border-color: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder)); } .vscode-high-contrast textarea, .vscode-high-contrast-light textarea { border-color: var(--vscode-input-border, var(--vscode-contrastBorder)); }
@@ -404,18 +405,23 @@ let revision = 0;
 let sent = false;
 let pendingSelection;
 let changingSelection = false;
+let composing = false;
 function paint() {
   const effective = parseInput(input.value, selectedIntent);
-  for (const button of buttons) { button.setAttribute('aria-pressed', String(button.dataset.mode === effective.intent)); button.disabled = busy || sent || changingSelection; }
-  document.getElementById('modeHint').textContent = hints[effective.intent];
-  document.getElementById('targetState').textContent = sent ? 'Gesendet' : active && active.existingThread ? 'Antwort fixiert' : input.value.trim() ? 'Entwurf fixiert' : 'Auswahl folgt';
+  for (const button of buttons) { button.setAttribute('aria-pressed', String(button.dataset.mode === effective.intent)); button.disabled = busy || sent || changingSelection || composing; }
   const finalized = parseInput(input.value, selectedIntent, true);
+  const needsConversation = effective.intent === 'summarize' && active && !active.existingThread && !finalized.text.trim();
+  const modeHint = document.getElementById('modeHint');
+  const modeDescription = needsConversation ? '/r in einer bestehenden Unterhaltung senden.' : hints[effective.intent];
+  if (modeHint.textContent !== modeDescription) modeHint.textContent = modeDescription;
+  modeHint.className = needsConversation ? 'mode-hint' : 'sr-only';
+  document.getElementById('targetState').textContent = sent ? 'Gesendet' : active && active.existingThread ? 'Antwort fixiert' : input.value.trim() ? 'Entwurf fixiert' : 'Auswahl folgt';
   send.textContent = busy ? (discarding ? 'Wird verworfen …' : 'Wird gesendet …') : labels[effective.intent];
-  send.disabled = busy || sent || changingSelection || !active || (!finalized.text.trim() && !(finalized.intent === 'summarize' && active.existingThread));
+  send.disabled = busy || sent || changingSelection || composing || !active || (!finalized.text.trim() && !(finalized.intent === 'summarize' && active.existingThread));
   input.disabled = busy || sent || changingSelection || !active;
   document.getElementById('discard').disabled = busy || sent || changingSelection || !active;
   document.getElementById('selection').hidden = !pendingSelection;
-  document.getElementById('takeSelection').disabled = busy || changingSelection;
+  document.getElementById('takeSelection').disabled = busy || changingSelection || composing;
   openCode.hidden = !active || !active.canOpenCode;
   openCode.disabled = !active || !active.canOpenCode || changingSelection;
 }
@@ -430,14 +436,14 @@ function changed() {
   if (!input.value.trim()) considerSelection();
 }
 function takeSelection(explicit) {
-  if (!pendingSelection || !active || busy || changingSelection) return;
+  if (!pendingSelection || !active || busy || changingSelection || composing) return;
   changingSelection = true;
   paint();
   vscode.postMessage({ type: 'follow', id: active.id, selectionId: pendingSelection.selectionId,
     text: sent ? '' : input.value, intent: parseInput(input.value, selectedIntent).intent, explicit });
 }
 function considerSelection() {
-  if (pendingSelection && !busy && (sent || !input.value.trim())) takeSelection(false);
+  if (pendingSelection && !busy && !composing && (sent || !input.value.trim())) takeSelection(false);
 }
 document.getElementById('takeSelection').addEventListener('click', () => takeSelection(true));
 openCode.addEventListener('click', () => {
@@ -445,7 +451,7 @@ openCode.addEventListener('click', () => {
   error.textContent = '';
   vscode.postMessage({ type: 'openCode', id: active.id });
 });
-input.addEventListener('input', () => {
+function updateInput() {
   const result = parseInput(input.value, selectedIntent);
   if (result.removedCharacters) {
     const start = input.selectionStart;
@@ -455,6 +461,12 @@ input.addEventListener('input', () => {
     selectedIntent = result.selectedIntent;
   }
   changed();
+}
+input.addEventListener('compositionstart', () => { composing = true; paint(); });
+input.addEventListener('compositionend', () => { composing = false; updateInput(); });
+input.addEventListener('input', event => {
+  if (composing || event.isComposing) { changed(); return; }
+  updateInput();
 });
 for (const button of buttons) button.addEventListener('click', () => {
   if (busy) return;
@@ -484,6 +496,7 @@ window.addEventListener('message', event => {
     input.value = message.text;
     busy = message.busy;
     sent = false;
+    composing = false;
     changingSelection = false;
     pendingSelection = undefined;
     discarding = false;

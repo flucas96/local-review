@@ -2,7 +2,7 @@
 
 Reviewed on 20–21 October 2026. **Fixed** means a source change has been made. **Verified** requires recorded execution evidence; a static review or a staged demo does not establish it.
 
-Latest evidence: [end-to-end verification report](QA-2026-10-21.md), including **183 passing automated tests**, an old/new hook reproduction and a real headless Claude roundtrip for ask, implement and summarize. The complete interactive native walkthrough remains open; the Mac is currently locked.
+Latest evidence: [0.4.7 UX review](UX-REVIEW-2026-10-21.md), including **210 passing automated tests**, an actual VS Code click-through with controlled agent replies, and responsive PR-preview checks. Earlier authenticated Claude and hook evidence remains in the [end-to-end report](QA-2026-10-21.md). These evidence types are recorded separately.
 
 ## Findings
 
@@ -30,12 +30,12 @@ Three independent read-only audits of preview `0.1.1` (`1765984`) identified the
 | --- | --- | --- | --- |
 | LR-012 | P1 | Claude cannot directly open the original review thread. | An authenticated `open_review(event_id)` MCP tool reusing existing diff/thread navigation. |
 | LR-013 | P1 | Replies update the UI but have no unread state or next-answer action. | Unread/ready count, optional actionable notification, and keyboard navigation without automatic focus changes. |
-| LR-014 | P1 | MCP heartbeat can show connected independently of a working wake hook. | Separate connection, watcher readiness, and explicit delivery acknowledgment; provide diagnostics and repair. |
+| LR-014 | P1 | MCP heartbeat can show connected independently of a working wake hook. | Fixed in 0.4.7: separate receiver readiness, expire it independently, and offer reconnect while preserving explicit ACK semantics. Process tests pass; native connected/receiver states observed. |
 | LR-015 | P2 | Setup launches only an integrated terminal and cannot attach arbitrary running Claude processes. | Keep the launcher and offer a generated launch/resume command for an external local terminal. |
 | LR-016 | P2 | Session ownership is implicit, and resume chooses the latest conversation. | Explicit conversation selection, visible owner, and controlled takeover. |
 | LR-017 | P2 | Required Claude wake capability is not checked during setup. | Capability/version preflight with an actionable compatibility error. |
 | LR-018 | P2 | Review file selection is HEAD-relative and opens one file at a time. | A stable review baseline and next/previous-file navigation; committed work must remain reviewable. |
-| LR-019 | P2 | The flat queue hides filename/line in a tooltip and includes all resolved threads. | Visible locations, open/unread filters, and quick resolve/reopen actions. |
+| LR-019 | P2 | The flat queue hides filename/line in a tooltip and includes all resolved threads. | Fixed: visible filename:line in 0.4.7, saved resolved filter and quick actions in 0.4.4. Native hide/show/reopen repeated in 0.4.7. Unread tracking remains LR-013. |
 | LR-020 | P2 | A slash prefix can override the clicked intent button without a preview. | Source fixed in 0.2.0: controlled composer previews live mode and uses one send action; native walkthrough pending. |
 | LR-021 | P2 | Add-comment shortcut and context action exclude original-side virtual documents. | Source fixed in 0.2.0: include `local-review-base`; removed/original-line walkthrough pending. |
 
@@ -162,4 +162,4 @@ Native apply and focus/blur passed with the unchanged palette. The corrected res
 
 Open work is tracked in GitHub: [validation and live integration #1](https://github.com/flucas96/local-review/issues/1), [Marketplace publisher and listing #2](https://github.com/flucas96/local-review/issues/2), [large-backlog pagination #3](https://github.com/flucas96/local-review/issues/3), [daily-workflow usability #4](https://github.com/flucas96/local-review/issues/4), and [live modes, PR handoff and demo #5](https://github.com/flucas96/local-review/issues/5).
 
-The `0.4.4` bundle and strict TypeScript checking pass, as do all 169 automated tests. Packaging includes the extension icon, view SVG, author avatars and illustrated flow. Native code-action navigation, JavaScript hover, F12, colored previews and resolve/show/reopen were exercised in the macOS playground. Real headless Claude replied with fenced code for all three review intents. A fresh interactive input-to-reply walkthrough, full PR walkthrough, publisher registration and Marketplace publication remain pending. Manual GitHub Actions workflows have not been run. Record future verification with the commit, platform, scenario, result, and a link to the workflow run or issue.
+The `0.4.7` bundle and strict TypeScript checking pass, as do all 210 automated tests. The VSIX is installed in the user's VS Code. This release adds native input-to-reply checks with controlled responses for all three modes, resolve/show/reopen, code navigation and responsive rendering of the production PR preview. Earlier authenticated headless Claude, hover and F12 evidence remains recorded above. A complete authenticated interactive run, real PR publication walkthrough, publisher registration and Marketplace publication remain pending. Manual GitHub Actions workflows have not been run. See the [current UX report](UX-REVIEW-2026-10-21.md) for precise evidence and remaining limits.
