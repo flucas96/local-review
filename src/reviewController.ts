@@ -13,16 +13,16 @@ const controllerId = 'localReview';
 const baseScheme = 'local-review-base';
 const contextScheme = 'local-review-context';
 const intentLabels: Record<ReviewIntent, string> = {
-  ask: 'Fragen',
-  implement: 'Umsetzen',
-  summarize: 'Zusammenfassen',
+  ask: 'Frage',
+  implement: 'Umsetzung',
+  summarize: 'Zusammenfassung',
 };
 const statusLabels: Record<ReviewThread['status'], string> = {
   queued: 'Wartet auf Claude',
-  received: 'Empfangen',
-  working: 'In Bearbeitung',
-  answered: 'Antwort erhalten',
-  ready: 'Bereit zur Prüfung',
+  received: 'Bei Claude',
+  working: 'Claude arbeitet',
+  answered: 'Beantwortet',
+  ready: 'Zur Prüfung',
 };
 
 interface BaseReference {
@@ -110,10 +110,10 @@ function lineRange(document: vscode.TextDocument, range: vscode.Range): vscode.R
 }
 
 /** Render untrusted review text without allowing executable Markdown links. */
-function nativeComment(message: ReviewMessage): vscode.Comment {
+function nativeComment(message: ReviewMessage, author: vscode.CommentAuthorInformation): vscode.Comment {
   return {
     body: new vscode.MarkdownString(message.text),
-    author: { name: message.author === 'human' ? 'Du' : 'Claude' },
+    author,
     mode: vscode.CommentMode.Preview,
     timestamp: new Date(message.createdAt),
   };
@@ -186,6 +186,10 @@ export async function createReviewController(
 ): Promise<vscode.Disposable> {
   const controller = vscode.comments.createCommentController(controllerId, 'Lokales Review');
   controller.options = { prompt: 'Feedback senden', placeHolder: '/a fragen · /i umsetzen · /r zusammenfassen' };
+  const authors: Record<ReviewMessage['author'], vscode.CommentAuthorInformation> = {
+    human: { name: 'Du', iconPath: vscode.Uri.joinPath(context.extensionUri, 'resources', 'reviewer.svg') },
+    claude: { name: 'Claude', iconPath: vscode.Uri.joinPath(context.extensionUri, 'resources', 'assistant.svg') },
+  };
   const bindings = new Map<string, ThreadBinding>();
   const tree = new ReviewTree(store);
   const view = vscode.window.createTreeView('localReview.threads', { treeDataProvider: tree, showCollapseAll: false });
@@ -339,10 +343,10 @@ export async function createReviewController(
 
   /** Copy durable status into the native comment controls. */
   function updateNative(thread: ReviewThread, native: vscode.CommentThread): void {
-    native.comments = thread.messages.map(nativeComment);
+    native.comments = thread.messages.map((message) => nativeComment(message, authors[message.author]));
     native.contextValue = thread.resolved ? 'localReview.resolved' : 'localReview.open';
     native.state = thread.resolved ? vscode.CommentThreadState.Resolved : vscode.CommentThreadState.Unresolved;
-    native.canReply = !thread.resolved;
+    native.canReply = thread.resolved ? false : authors.human;
     const contextLabel = native.uri.scheme === contextScheme ? ' · Gespeicherter Kontext' : thread.outdated ? ' · Kontext geändert' : '';
     native.label = `${intentLabels[thread.intent]} · ${thread.resolved ? 'Erledigt' : statusLabels[thread.status]}${contextLabel}`;
   }
@@ -613,8 +617,8 @@ export async function createReviewController(
     const draft = controller.createCommentThread(editor.document.uri, range, []);
     draft.contextValue = 'localReview.draft';
     draft.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
-    draft.canReply = true;
-    draft.label = 'Feedback · /a fragen · /i umsetzen · /r zusammenfassen';
+    draft.canReply = authors.human;
+    draft.label = 'Neuer Kommentar';
     nativeDrafts.add(draft);
     activeComposerTarget = request;
     refreshSelectionDecoration();

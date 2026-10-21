@@ -5,3 +5,5 @@
 !dist/*.cjs
 !resources/icon.png
 !resources/review.svg
+!resources/reviewer.svg
+!resources/assistant.svg

@@ -38,7 +38,7 @@ For live mode buttons and locally saved drafts, run **Local Review: Feedback in 
 
 New Claude replies are instructed to use Markdown code fences with a language label and real line breaks. Existing unfenced answers are preserved; ask Claude to reformat one if needed. Restart the connected Claude session after updating so its loaded tools and hooks receive the latest formatting contract.
 
-Wait for explicit receipt and Claude's reply. **Bereit zur Prüfung** means the implementation is ready for your review. Use **Als erledigt markieren** when you accept it, or **Wieder öffnen** to continue a resolved conversation.
+Wait for explicit receipt and Claude's reply. **Zur Prüfung** means the implementation is ready for your review. Use **Als erledigt markieren** when you accept it, or **Wieder öffnen** to continue a resolved conversation. Human and Claude messages use distinct avatars; VS Code controls the native card layout. The optional side composer adds compact rounded surfaces and theme-aware mint accents without changing your editor theme.
 
 ## Share selected feedback with an open PR
 

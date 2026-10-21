@@ -55,6 +55,12 @@ With user approval on 20 October 2026, strict TypeScript checking passes and **7
 
 On macOS, the 0.3.0 VSIX was installed over 0.2.0 in the user's VS Code and the playground window reloaded. The add-comment shortcut opened a native field on line 6; entering `/i ` enabled the single **Senden** button. The temporary text was cleared and its draft discarded. Clicking the visible gutter plus on the same line also opened a focused native field with the shared slash-command placeholder and one disabled send button while empty. No test feedback was sent to the authenticated Claude session. Existing stored conversations remained visible after reload.
 
+## 0.3.1 chat styling
+
+Native comments now use distinct human and Claude SVG avatars, including the identity beside reply input. Compact headings preserve the existing delivery and review states. The optional side composer uses a rounded joined input card, mint borders/tints, a clearer file path, quieter code disclosure and compact actions. It inherits editor/theme surfaces and foreground, retains visible keyboard focus, and defines high-contrast borders and narrow-panel wrapping. Native spacing, fonts and card CSS remain owned by VS Code; no user theme settings are modified.
+
+Strict TypeScript checking and all 73 existing regressions pass after the visual changes. Packaging includes both author SVGs. The installed version was confirmed as 0.3.1 in the user's macOS VS Code, then the playground window reloaded. A stored implementation thread rendered both message avatars plus the human reply avatar, with the shorter status heading. Opening its optional reply composer rendered the rounded card, `retry.js:9`, pinned-reply state, selected implementation mode and disabled send button while empty. The current dark theme was visually reviewed; light/high-contrast themes and narrow widths still need a visual walkthrough. No feedback was sent during this styling check.
+
 ## Verification still required
 
 - Repeat the relevant checks after future changes. Current 0.3.0 strict TypeScript checking and all 73 tests pass; this does not replace native extension-host or authenticated integration validation.

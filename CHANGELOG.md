@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+- Add distinct human and Claude avatars to native conversations, including the identity beside inline replies.
+- Shorten thread headings and status labels while preserving delivery and review states.
+- Restyle the optional side composer with a single rounded input card, mint accents, quieter code context, clearer file hierarchy and compact actions.
+- Preserve theme colors, visible keyboard focus, explicit high-contrast borders and narrow-panel wrapping. Native comment layout remains controlled by VS Code.
+
 ## 0.3.0
 
 - Make native inline input the default: gutter plus, direct replies, one send action and `/a`, `/i`, `/r` shortcuts evaluated on send.

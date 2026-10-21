@@ -2,7 +2,7 @@
   "name": "local-review",
   "displayName": "Local Review",
   "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "icon": "resources/icon.png",
   "galleryBanner": { "color": "#101B29", "theme": "dark" },
   "publisher": "local-review-dev",

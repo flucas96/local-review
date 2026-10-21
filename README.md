@@ -52,7 +52,7 @@ Code context is captured when you submit feedback. If an old location cannot be 
 
 ## Preview status
 
-This is an early preview. The **0.3.0 bundle and strict TypeScript check pass; all 73 automated tests pass**. A complete authenticated Claude and GitHub PR walkthrough remains pending. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
+This is an early preview. The **0.3.1 bundle and strict TypeScript check pass; all 73 automated tests pass**. Native conversations have distinct avatars and compact status headings; the optional side composer uses rounded surfaces and quiet mint accents. VS Code controls the native comment layout. A complete authenticated Claude and GitHub PR walkthrough remains pending. The demo uses simulated responses. [Review findings and remaining limits →](docs/REVIEW.md)
 
 The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks missing Claude-to-thread navigation, unread replies, delivery readiness, and support for launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
 
