@@ -22,11 +22,19 @@ VS Code also supports `code --install-extension /path/to/local-review-VERSION.vs
 
 ## Connect Claude
 
-Run **Local Review: Mit Claude verbinden** from the Command Palette. Choose **Neue Review-Unterhaltung** for a new conversation or **Letzte Unterhaltung fortsetzen** to continue the latest one. Close any existing Claude process using that conversation before continuing it here.
+Run **Local Review: Mit Claude verbinden** from the Command Palette. **Unterhaltung auswählen** opens Claude's own session picker; choose the conversation that built the feature. **Neue Unterhaltung** starts a fresh conversation. The launcher never silently chooses the latest session.
+
+If the desired conversation is still running, finish its current work and use `/exit` in that terminal before selecting it. Its saved history is retained. This release resumes a conversation with the review configuration; it does not add the connection to an arbitrary already-running process.
 
 The extension starts Claude in an integrated terminal with the review connection attached. Complete any normal Claude trust or tool-permission prompts. An arbitrary Claude terminal opened earlier is not attached automatically.
 
-After an update, reload the VS Code window and run **Mit Claude verbinden → Verbindung neu starten** once so Claude loads the new helpers. A normal window reload recognizes this project's existing **Claude · Local Review** terminal and offers to show or restart it instead of launching a duplicate.
+After an update, reload the VS Code window and reconnect Claude once so it loads the new helpers. A normal window reload recognizes this project's existing **Claude · Local Review** terminal. **Terminal anzeigen** reopens it. **Unterhaltung wechseln** (or **Verbindung neu starten** when delivery is inactive) explicitly replaces that managed terminal after you choose existing/new; cancelling or failing setup keeps it intact. External terminals are never closed by this action. If another receiver is active without a managed terminal, the launcher asks you to exit it first; readiness expires within 45 seconds.
+
+### Use a separate terminal
+
+Choose **Review → … → Verbindungsbefehl kopieren** or the same command under **Local Review** in the Command Palette. Choose **Unterhaltung auswählen** or **Neue Unterhaltung**, then paste at a shell prompt in Terminal, iTerm or another local terminal. If Claude is running there, use `/exit` first. The command changes to the project folder and starts Claude with the same private review configuration as the integrated launcher. Copying does not start or stop a session. Keep this project's VS Code window open, and use only one review receiver for the project.
+
+Claude's usual project configuration and tool approvals still apply. The generated command does not force a model, remove other MCP servers or bypass permissions. Custom options supplied only to the old Claude invocation must be supplied again; see [Claude session restoration](https://code.claude.com/docs/en/sessions#what-a-resumed-session-restores).
 
 The status bar shows **Review · Verbinden** without a live connection, **Review · Zustellung pausiert** when only the tools are connected, and **Review** when the feedback receiver is active. Older helpers cannot report this readiness signal until reconnected. A ready connection still does not mean Claude has acknowledged an individual comment.
 

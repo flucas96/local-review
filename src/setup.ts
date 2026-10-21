@@ -32,10 +32,10 @@ async function writePrivateJson(path: string, value: unknown): Promise<void> {
 }
 
 /** Reuse this project's managed terminal when VS Code reloads the extension host. */
-function existingReviewTerminal(workspaceRoot: string): vscode.Terminal | undefined {
+function existingReviewTerminal(workspaceRoot: string, inactiveTerminals: WeakSet<vscode.Terminal>): vscode.Terminal | undefined {
   return vscode.window.terminals.findLast((candidate) => {
     const options = candidate.creationOptions;
-    if (options.name !== reviewTerminalName || candidate.exitStatus !== undefined) return false;
+    if (options.name !== reviewTerminalName || candidate.exitStatus !== undefined || inactiveTerminals.has(candidate)) return false;
     const cwd = 'cwd' in options ? options.cwd : undefined;
     const path = typeof cwd === 'string' ? cwd : cwd?.scheme === 'file' ? cwd.fsPath : undefined;
     return path !== undefined && resolve(path) === resolve(workspaceRoot);
@@ -75,73 +75,114 @@ export async function prepareConnection(
   return { mcpPath, hooksPath, transport };
 }
 
-/** Offer an explicit session start or resume inside VS Code's integrated terminal. */
+/** Select a conversation without guessing which recent session created the code. */
+async function selectConversation(): Promise<boolean | undefined> {
+  const selection = await vscode.window.showQuickPick([
+    {
+      label: 'Unterhaltung auswählen', description: 'Bestehenden Kontext behalten', resume: true,
+      detail: 'Claude öffnet deine Sitzungsliste. Läuft die gewünschte Sitzung noch, beende sie zuerst mit /exit.',
+    },
+    { label: 'Neue Unterhaltung', description: 'Mit leerem Gespräch beginnen', resume: false },
+  ], { title: 'Claude Code verbinden', placeHolder: 'Welche Unterhaltung soll deine Kommentare erhalten?' });
+  return selection?.resume;
+}
+
+/** Prepare the same private review connection for either terminal location. */
+async function prepareClaudeCommand(
+  context: vscode.ExtensionContext, bridge: ReviewBridge, storagePath: string, resume: boolean,
+): Promise<string> {
+  const configuration = vscode.workspace.getConfiguration('localReview');
+  const [executable, nodePath] = await Promise.all([
+    resolveExecutable(configuration.get<string>('claudePath', 'claude'), bridge.descriptor.workspaceRoot),
+    resolveExecutable(configuration.get<string>('nodePath', 'node'), bridge.descriptor.workspaceRoot),
+  ]);
+  await requireNodeRuntime(nodePath);
+  const prepared = await prepareConnection(context, bridge, storagePath, nodePath);
+  const args = ['--mcp-config', prepared.mcpPath];
+  if (prepared.transport === 'hooks') args.push('--settings', prepared.hooksPath);
+  else args.push('--dangerously-load-development-channels', 'server:local-review');
+  if (resume) args.push('--resume');
+  return terminalCommand(executable, args);
+}
+
+/** Connect a chosen or new conversation, or copy its command for a separate terminal. */
 export function registerClaudeLauncher(
   context: vscode.ExtensionContext,
   bridge: ReviewBridge,
   storagePath: string,
 ): vscode.Disposable {
-  let terminal: vscode.Terminal | undefined = existingReviewTerminal(bridge.descriptor.workspaceRoot);
-  let sessionEnded = false;
+  const inactiveTerminals = new WeakSet<vscode.Terminal>();
+  let terminal: vscode.Terminal | undefined = existingReviewTerminal(bridge.descriptor.workspaceRoot, inactiveTerminals);
   let launching = false;
   const closed = vscode.window.onDidCloseTerminal(closedTerminal => {
+    inactiveTerminals.add(closedTerminal);
     if (terminal === closedTerminal) terminal = undefined;
   });
   const ended = vscode.window.onDidEndTerminalShellExecution(event => {
-    if (event.terminal === terminal) sessionEnded = true;
+    inactiveTerminals.add(event.terminal);
+    if (event.terminal === terminal) terminal = undefined;
   });
-  const command = vscode.commands.registerCommand('localReview.startClaude', async () => {
+  const isLive = (candidate: vscode.Terminal | undefined): candidate is vscode.Terminal => candidate !== undefined
+    && !inactiveTerminals.has(candidate) && candidate.exitStatus === undefined && vscode.window.terminals.includes(candidate);
+  const receiverConflict = (ownedTerminal: vscode.Terminal | undefined): boolean => {
+    if (bridge.state.deliveryReady !== true || isLive(ownedTerminal)) return false;
+    void vscode.window.showInformationMessage('Eine andere Claude-Sitzung empfängt bereits dein Feedback. Beende sie dort mit /exit, bevor du hier verbindest. Der Status aktualisiert sich innerhalb von 45 Sekunden.');
+    return true;
+  };
+  const register = (id: string, action: () => Promise<void>): vscode.Disposable => vscode.commands.registerCommand(id, async () => {
     if (launching) return;
     launching = true;
-    let replaceTerminal: vscode.Terminal | undefined;
     try {
       if (process.platform === 'win32') {
         throw new Error('Die automatische Claude-Verbindung dieser ersten Version unterstützt macOS und Linux. Windows folgt nach einer eigenen Prüfung.');
       }
-      terminal ??= existingReviewTerminal(bridge.descriptor.workspaceRoot);
-      if (terminal !== undefined) {
-        if (sessionEnded) {
-          terminal = undefined;
-        } else {
-          const show = { label: 'Terminal anzeigen', description: 'Die bestehende Unterhaltung öffnen', restart: false };
-          const restart = { label: 'Verbindung neu starten', description: 'Die laufende Review-Sitzung beenden und neu verbinden', restart: true };
-          const action = await vscode.window.showQuickPick(bridge.state.deliveryReady === true ? [show, restart] : [restart, show], {
-            title: bridge.state.deliveryReady === true ? 'Claude Code ist verbunden' : 'Automatische Zustellung wiederherstellen',
-          });
-          if (action === undefined) return;
-          if (!action.restart) {
-            terminal.show();
-            return;
-          }
-          replaceTerminal = terminal;
-        }
-      }
-      const selection = await vscode.window.showQuickPick([
-        { label: 'Letzte Unterhaltung fortsetzen', description: 'Mit automatischem Review-Feedback', resume: true },
-        { label: 'Neue Review-Unterhaltung', description: 'Mit automatischem Review-Feedback', resume: false },
-      ], { title: 'Claude Code verbinden', placeHolder: 'Welche Unterhaltung soll deine Kommentare erhalten?' });
-      if (selection === undefined) return;
-      const configuration = vscode.workspace.getConfiguration('localReview');
-      const [executable, nodePath] = await Promise.all([
-        resolveExecutable(configuration.get<string>('claudePath', 'claude'), bridge.descriptor.workspaceRoot),
-        resolveExecutable(configuration.get<string>('nodePath', 'node'), bridge.descriptor.workspaceRoot),
-      ]);
-      await requireNodeRuntime(nodePath);
-      const prepared = await prepareConnection(context, bridge, storagePath, nodePath);
-      const args = ['--mcp-config', prepared.mcpPath];
-      if (prepared.transport === 'hooks') args.push('--settings', prepared.hooksPath);
-      else args.push('--dangerously-load-development-channels', 'server:local-review');
-      if (selection.resume) args.push('--continue');
-      replaceTerminal?.dispose();
-      terminal = vscode.window.createTerminal({ name: reviewTerminalName, cwd: bridge.descriptor.workspaceRoot });
-      sessionEnded = false;
-      terminal.show();
-      terminal.sendText(terminalCommand(executable, args));
+      await action();
     } catch (error: unknown) {
-      await vscode.window.showErrorMessage(`Local Review: ${error instanceof Error ? error.message : String(error)}`);
+      void vscode.window.showErrorMessage(`Local Review: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       launching = false;
     }
   });
-  return vscode.Disposable.from(command, closed, ended);
+  const command = register('localReview.startClaude', async () => {
+    let replaceTerminal: vscode.Terminal | undefined;
+    if (!isLive(terminal)) terminal = existingReviewTerminal(bridge.descriptor.workspaceRoot, inactiveTerminals);
+    const currentTerminal = terminal;
+    if (receiverConflict(currentTerminal)) return;
+    if (currentTerminal !== undefined) {
+      const show = { label: 'Terminal anzeigen', description: 'Die bestehende Unterhaltung öffnen', restart: false };
+      const restart = {
+        label: bridge.state.deliveryReady === true ? 'Unterhaltung wechseln' : 'Verbindung neu starten',
+        description: 'Das bisherige Review-Terminal schließen',
+        detail: 'Danach wählst du eine bestehende Unterhaltung oder startest eine neue.', restart: true,
+      };
+      const action = await vscode.window.showQuickPick(bridge.state.deliveryReady === true ? [show, restart] : [restart, show], {
+        title: bridge.state.deliveryReady === true ? 'Claude Code ist verbunden' : 'Automatische Zustellung wiederherstellen',
+      });
+      if (action === undefined || receiverConflict(currentTerminal)) return;
+      if (!action.restart) {
+        if (isLive(currentTerminal)) currentTerminal.show();
+        return;
+      }
+      replaceTerminal = currentTerminal;
+    }
+    const resume = await selectConversation();
+    if (resume === undefined || receiverConflict(replaceTerminal)) return;
+    const launch = await prepareClaudeCommand(context, bridge, storagePath, resume);
+    if (receiverConflict(replaceTerminal)) return;
+    if (isLive(replaceTerminal)) {
+      inactiveTerminals.add(replaceTerminal);
+      replaceTerminal.dispose();
+    }
+    terminal = vscode.window.createTerminal({ name: reviewTerminalName, cwd: bridge.descriptor.workspaceRoot });
+    terminal.show();
+    terminal.sendText(launch);
+  });
+  const copy = register('localReview.copyClaudeCommand', async () => {
+    const resume = await selectConversation();
+    if (resume === undefined) return;
+    const launch = await prepareClaudeCommand(context, bridge, storagePath, resume);
+    await vscode.env.clipboard.writeText(`cd ${quotePosix(bridge.descriptor.workspaceRoot)} && ${launch}`);
+    void vscode.window.showInformationMessage('Befehl kopiert. Im Shell-Prompt ausführen; laufendes Claude vorher mit /exit beenden.');
+  });
+  return vscode.Disposable.from(command, copy, closed, ended);
 }

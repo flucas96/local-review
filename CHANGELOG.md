@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.8
+
+- Choose a specific saved Claude conversation through its native session picker, or start a new one. Resume keeps history and replaces the previous automatic “latest conversation” selection.
+- Copy a safely quoted project-aware connection command for a separate terminal, with the same existing/new choices and private review configuration.
+- Make managed-session switching explicit, preserve sessions when selection is cancelled or setup fails, and avoid launching over an active external feedback receiver.
+- Explain that an already-running conversation must currently be exited and resumed; in-place plugin attachment remains unverified follow-up work.
+
 ## 0.4.7
 
 - Keep existing native comment objects during status updates; show filename and line in the Review list, and expose the contrast action directly in its toolbar.

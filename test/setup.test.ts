@@ -1,14 +1,16 @@
 import type * as vscode from 'vscode';
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { afterEach } from 'node:test';
 import type { TestContext } from 'node:test';
+import { promisify } from 'node:util';
 
 import type { ReviewBridge } from '../src/contracts.js';
 import { prepareConnection, registerClaudeLauncher } from '../src/setup.js';
-import { commands, FakeTerminal, resetFakeEditor, resetFakeWindow, window, workspace } from './fakes/vscode.js';
+import { commands, env, FakeTerminal, resetFakeEditor, resetFakeWindow, terminalEvents, window, workspace } from './fakes/vscode.js';
 
 const registrations: vscode.Disposable[] = [];
 
@@ -35,6 +37,11 @@ async function fixture(t: TestContext): Promise<{ root: string; context: vscode.
   return { root, context: { extensionPath: '/installed/local-review' } as vscode.ExtensionContext };
 }
 
+/** Report command completion while preserving the terminal's idle shell and identity. */
+function endSession(terminal: FakeTerminal): void {
+  terminalEvents.ended.fire({ terminal } as unknown as vscode.TerminalShellExecutionEndEvent);
+}
+
 test('reuses this project\'s latest managed Claude terminal after the extension is recreated', async (t) => {
   const { root, context } = await fixture(t);
   const earlier = new FakeTerminal({ name: 'Claude · Local Review', cwd: root });
@@ -53,7 +60,8 @@ test('reuses this project\'s latest managed Claude terminal after the extension 
   assert.equal(terminal.showCalls, 1);
   assert.equal(terminal.disposed, false);
   assert.deepEqual(terminal.sendTextCalls, []);
-  assert.deepEqual(window.quickPicks[0]?.map((item) => item.label), ['Terminal anzeigen', 'Verbindung neu starten']);
+  assert.deepEqual(window.quickPicks[0]?.map((item) => item.label), ['Terminal anzeigen', 'Unterhaltung wechseln']);
+  assert.match(window.quickPicks[0]?.[1]?.description ?? '', /beende|schließen/u);
   assert.deepEqual(await readdir(root), []);
 });
 
@@ -62,14 +70,102 @@ test('does not adopt another project\'s terminal or dispose it when connection s
   const terminal = new FakeTerminal({ name: 'Claude · Local Review', cwd: join(root, 'another-project') });
   window.terminals.push(terminal);
   window.quickPickIndex = undefined;
-  registrations.push(registerClaudeLauncher(context, bridge(root), root));
+  registrations.push(registerClaudeLauncher(context, bridge(root, false), root));
 
   await commands.executeCommand('localReview.startClaude');
 
   assert.equal(terminal.showCalls, 0);
   assert.equal(terminal.disposed, false);
-  assert.deepEqual(window.quickPicks[0]?.map((item) => item.label), ['Letzte Unterhaltung fortsetzen', 'Neue Review-Unterhaltung']);
+  assert.deepEqual(window.quickPicks[0]?.map((item) => item.label), ['Unterhaltung auswählen', 'Neue Unterhaltung']);
   assert.deepEqual(await readdir(root), []);
+});
+
+test('an active external review receiver prevents launching a competing managed session', async (t) => {
+  const { root, context } = await fixture(t);
+  const external = new FakeTerminal({ name: 'Claude', cwd: root });
+  window.terminals.push(external);
+  registrations.push(registerClaudeLauncher(context, bridge(root), root));
+
+  await commands.executeCommand('localReview.startClaude');
+
+  assert.match(window.information[0] ?? '', /andere Claude-Sitzung.*\/exit/u);
+  assert.deepEqual(window.quickPicks, []);
+  assert.equal(window.terminals.length, 1);
+  assert.equal(external.showCalls, 0);
+  assert.equal(external.disposed, false);
+  assert.deepEqual(external.sendTextCalls, []);
+  assert.deepEqual(await readdir(root), []);
+});
+
+test('an ended managed session cannot authorize takeover or be rediscovered as the active receiver', async (t) => {
+  const { root, context } = await fixture(t);
+  const terminal = new FakeTerminal({ name: 'Claude · Local Review', cwd: root });
+  const state = { connected: true, deliveryReady: true };
+  window.terminals.push(terminal);
+  registrations.push(registerClaudeLauncher(context, { ...bridge(root), state }, root));
+  endSession(terminal);
+
+  await commands.executeCommand('localReview.startClaude');
+  await commands.executeCommand('localReview.startClaude');
+
+  assert.equal(window.information.length, 2);
+  assert.equal(window.quickPicks.length, 0);
+  assert.equal(window.terminals.length, 1);
+  assert.equal(terminal.disposed, false);
+  assert.equal(terminal.showCalls, 0);
+  assert.deepEqual(terminal.sendTextCalls, []);
+  assert.deepEqual(await readdir(root), []);
+
+  state.deliveryReady = false;
+  window.quickPickIndex = undefined;
+  await commands.executeCommand('localReview.startClaude');
+
+  assert.deepEqual(window.quickPicks[0]?.map((item) => item.label), ['Unterhaltung auswählen', 'Neue Unterhaltung']);
+  assert.equal(terminal.disposed, false);
+  assert.deepEqual(await readdir(root), []);
+});
+
+test('a receiver connecting while the conversation picker is open prevents a competing launch', async (t) => {
+  const { root, context } = await fixture(t);
+  const state = { connected: false, deliveryReady: false };
+  window.beforeQuickPick = () => { state.connected = true; state.deliveryReady = true; };
+  registrations.push(registerClaudeLauncher(context, { ...bridge(root, false), state }, root));
+
+  await commands.executeCommand('localReview.startClaude');
+
+  assert.equal(window.quickPicks.length, 1);
+  assert.match(window.information[0] ?? '', /andere Claude-Sitzung/u);
+  assert.equal(window.terminals.length, 0);
+  assert.deepEqual(await readdir(root), []);
+});
+
+test('a receiver taking over after managed command completion during setup prevents disposal and launch', async (t) => {
+  const { root, context } = await fixture(t);
+  const terminal = new FakeTerminal({ name: 'Claude · Local Review', cwd: root });
+  const state = { connected: true, deliveryReady: false };
+  window.terminals.push(terminal);
+  workspace.configurationValues.set('localReview.claudePath', process.execPath);
+  workspace.configurationValues.set('localReview.nodePath', process.execPath);
+  const getConfiguration = workspace.getConfiguration.bind(workspace);
+  let configurationReads = 0;
+  t.mock.method(workspace, 'getConfiguration', (section: string) => {
+    configurationReads += 1;
+    if (configurationReads === 2) {
+      endSession(terminal);
+      state.deliveryReady = true;
+    }
+    return getConfiguration(section);
+  });
+  registrations.push(registerClaudeLauncher(context, { ...bridge(root, false), state }, root));
+
+  await commands.executeCommand('localReview.startClaude');
+
+  assert.equal(configurationReads, 2);
+  assert.deepEqual(window.errors, []);
+  assert.match(window.information[0] ?? '', /andere Claude-Sitzung/u);
+  assert.equal(window.terminals.length, 1);
+  assert.equal(terminal.disposed, false);
+  assert.deepEqual(terminal.sendTextCalls, []);
 });
 
 test('finds a managed terminal restored after extension activation without launching a duplicate', async (t) => {
@@ -99,6 +195,24 @@ test('cancelling reconnect keeps the recovered conversation and performs no runt
   assert.deepEqual(terminal.sendTextCalls, []);
   assert.deepEqual(await readdir(root), []);
 });
+
+for (const ready of [true, false]) {
+  test(`cancelling the conversation picker preserves a ${ready ? 'ready' : 'paused'} managed session`, async (t) => {
+    const { root, context } = await fixture(t);
+    const terminal = new FakeTerminal({ name: 'Claude · Local Review', cwd: root });
+    window.terminals.push(terminal);
+    window.quickPickIndexes.push(ready ? 1 : 0, undefined);
+    registrations.push(registerClaudeLauncher(context, bridge(root, true, ready), root));
+
+    await commands.executeCommand('localReview.startClaude');
+
+    assert.equal(window.quickPicks.length, 2);
+    assert.equal(window.terminals.length, 1);
+    assert.equal(terminal.disposed, false);
+    assert.deepEqual(terminal.sendTextCalls, []);
+    assert.deepEqual(await readdir(root), []);
+  });
+}
 
 test('a tool-only connection offers recovery before reopening the existing inactive delivery terminal', async (t) => {
   const { root, context } = await fixture(t);
@@ -133,6 +247,11 @@ test('a failed replacement setup preserves the existing Claude conversation', as
 for (const resume of [true, false]) {
   test(`starts ${resume ? 'a resumed' : 'a new'} conversation with private integration arguments in the correct project`, async (t) => {
     const { root, context } = await fixture(t);
+    const settings = '{"env":{"ANTHROPIC_MODEL":"project-model"},"permissions":{"deny":["Bash(rm *)"]}}\n';
+    const mcp = '{"mcpServers":{"existing":{"command":"project-tool"}}}\n';
+    await mkdir(join(root, '.claude'));
+    await writeFile(join(root, '.claude', 'settings.local.json'), settings);
+    await writeFile(join(root, '.mcp.json'), mcp);
     workspace.configurationValues.set('localReview.claudePath', process.execPath);
     workspace.configurationValues.set('localReview.nodePath', process.execPath);
     window.quickPickIndex = resume ? 0 : 1;
@@ -150,10 +269,131 @@ for (const resume of [true, false]) {
     const command = terminal.sendTextCalls[0]?.text ?? '';
     assert.ok(command.includes(`'--mcp-config' '${join(root, 'mcp.json')}'`));
     assert.ok(command.includes(`'--settings' '${join(root, 'hooks.json')}'`));
-    assert.equal(command.includes("'--continue'"), resume);
+    assert.equal(command.includes("'--resume'"), resume);
+    assert.equal(command.includes("'--continue'"), false);
     assert.equal(command.includes('dangerously-load-development-channels'), false);
+    assert.equal(command.includes('--strict-mcp-config'), false);
+    assert.equal(command.includes('--dangerously-skip-permissions'), false);
+    assert.equal(command.includes('--permission-mode'), false);
+    assert.equal(command.includes('--setting-sources'), false);
+    assert.deepEqual(workspace.configurationWrites, []);
+    assert.equal(await readFile(join(root, '.claude', 'settings.local.json'), 'utf8'), settings);
+    assert.equal(await readFile(join(root, '.mcp.json'), 'utf8'), mcp);
   });
 }
+
+test('switching the connected managed conversation starts the selected new session explicitly', async (t) => {
+  const { root, context } = await fixture(t);
+  const terminal = new FakeTerminal({ name: 'Claude · Local Review', cwd: root });
+  window.terminals.push(terminal);
+  window.quickPickIndexes.push(1, 1);
+  workspace.configurationValues.set('localReview.claudePath', process.execPath);
+  workspace.configurationValues.set('localReview.nodePath', process.execPath);
+  registrations.push(registerClaudeLauncher(context, bridge(root), root));
+
+  await commands.executeCommand('localReview.startClaude');
+
+  assert.equal(terminal.disposed, true);
+  assert.deepEqual(terminal.sendTextCalls, []);
+  assert.equal(window.terminals.length, 2);
+  const replacement = window.terminals[1];
+  assert.equal(replacement?.creationOptions.cwd, root);
+  assert.equal(replacement?.showCalls, 1);
+  assert.equal(replacement?.sendTextCalls.length, 1);
+  assert.doesNotMatch(replacement?.sendTextCalls[0]?.text ?? '', /--resume|--continue/u);
+});
+
+for (const resume of [true, false]) {
+  test(`copies ${resume ? 'a resume' : 'a fresh session'} command without touching managed or external terminals`, async (t) => {
+    const { root, context } = await fixture(t);
+    const terminal = new FakeTerminal({ name: 'Claude · Local Review', cwd: root });
+    const unrelated = new FakeTerminal({ name: 'Claude', cwd: root });
+    window.terminals.push(terminal, unrelated);
+    window.quickPickIndex = resume ? 0 : 1;
+    workspace.configurationValues.set('localReview.claudePath', process.execPath);
+    workspace.configurationValues.set('localReview.nodePath', process.execPath);
+    registrations.push(registerClaudeLauncher(context, bridge(root), root));
+
+    await commands.executeCommand('localReview.copyClaudeCommand');
+
+    assert.deepEqual(window.errors, []);
+    assert.equal(env.clipboard.writes.length, 1);
+    const command = env.clipboard.writes[0] ?? '';
+    assert.ok(command.startsWith(`cd '${root}' && `));
+    assert.ok(command.includes(`'--mcp-config' '${join(root, 'mcp.json')}'`));
+    assert.ok(command.includes(`'--settings' '${join(root, 'hooks.json')}'`));
+    assert.equal(command.includes("'--resume'"), resume);
+    assert.equal(command.includes('--continue'), false);
+    assert.equal(command.includes('--strict-mcp-config'), false);
+    assert.equal(command.includes('--dangerously-skip-permissions'), false);
+    assert.equal(window.terminals.length, 2);
+    for (const existing of [terminal, unrelated]) {
+      assert.equal(existing.disposed, false);
+      assert.equal(existing.showCalls, 0);
+      assert.deepEqual(existing.sendTextCalls, []);
+    }
+  });
+}
+
+test('cancelling an external command preserves the clipboard, terminal, and runtime files', async (t) => {
+  const { root, context } = await fixture(t);
+  const terminal = new FakeTerminal({ name: 'Claude · Local Review', cwd: root });
+  window.terminals.push(terminal);
+  window.quickPickIndex = undefined;
+  registrations.push(registerClaudeLauncher(context, bridge(root), root));
+
+  await commands.executeCommand('localReview.copyClaudeCommand');
+
+  assert.deepEqual(env.clipboard.writes, []);
+  assert.equal(window.terminals.length, 1);
+  assert.equal(terminal.disposed, false);
+  assert.deepEqual(terminal.sendTextCalls, []);
+  assert.deepEqual(await readdir(root), []);
+});
+
+test('failed external command setup leaves the clipboard and active conversation untouched', async (t) => {
+  const { root, context } = await fixture(t);
+  const terminal = new FakeTerminal({ name: 'Claude · Local Review', cwd: root });
+  window.terminals.push(terminal);
+  workspace.configurationValues.set('localReview.claudePath', join(root, 'missing-claude'));
+  registrations.push(registerClaudeLauncher(context, bridge(root), root));
+
+  await commands.executeCommand('localReview.copyClaudeCommand');
+
+  assert.match(window.errors[0] ?? '', /wurde nicht gefunden/u);
+  assert.deepEqual(env.clipboard.writes, []);
+  assert.equal(terminal.disposed, false);
+  assert.deepEqual(terminal.sendTextCalls, []);
+  assert.deepEqual(await readdir(root), []);
+});
+
+test('the copied command preserves shell-special paths as literal arguments and selects the exact project', async (t) => {
+  const { root, context } = await fixture(t);
+  const project = join(root, "review's $(touch unintended) `touch backtick` & space");
+  const storage = join(root, 'private config');
+  const executable = join(root, "Claude's $(touch executable-injection)");
+  await mkdir(project);
+  await writeFile(executable, `#!${process.execPath}\nprocess.stdout.write(JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(2) }));\n`, { mode: 0o700 });
+  workspace.configurationValues.set('localReview.claudePath', executable);
+  workspace.configurationValues.set('localReview.nodePath', process.execPath);
+  registrations.push(registerClaudeLauncher(context, bridge(project, false), storage));
+
+  await commands.executeCommand('localReview.copyClaudeCommand');
+
+  assert.deepEqual(window.errors, []);
+  assert.equal(env.clipboard.writes.length, 1);
+  const command = env.clipboard.writes[0];
+  assert.ok(command);
+  const result = await promisify(execFile)('/bin/sh', ['-c', command], { cwd: root, encoding: 'utf8', timeout: 5_000 });
+  assert.deepEqual(JSON.parse(result.stdout), {
+    cwd: await realpath(project),
+    args: ['--mcp-config', join(storage, 'mcp.json'), '--settings', join(storage, 'hooks.json'), '--resume'],
+  });
+  assert.equal(result.stderr, '');
+  assert.deepEqual(await readdir(project), []);
+  assert.deepEqual((await readdir(root)).sort(), [executable.slice(root.length + 1), 'private config', project.slice(root.length + 1)].sort());
+  assert.equal(window.terminals.length, 0);
+});
 
 test('rewriting private integration files replaces permissive old files and preserves complete JSON for readers', async (t) => {
   const { root, context } = await fixture(t);

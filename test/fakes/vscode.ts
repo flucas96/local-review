@@ -504,6 +504,10 @@ export const commands = {
 export const env = {
   opened: [] as Uri[],
   async openExternal(uri: Uri): Promise<boolean> { this.opened.push(uri); return true; },
+  clipboard: {
+    writes: [] as string[],
+    async writeText(value: string): Promise<void> { this.writes.push(value); },
+  },
 };
 
 /** Simulate installed language IDs while letting production code choose aliases. */
@@ -556,6 +560,8 @@ export const window = {
   statusMessages: [] as string[],
   quickPicks: [] as (readonly vscode.QuickPickItem[])[],
   quickPickIndex: 0 as number | undefined,
+  quickPickIndexes: [] as (number | undefined)[],
+  beforeQuickPick: undefined as (() => void | Promise<void>) | undefined,
   beforeShow: undefined as (() => Promise<void>) | undefined,
   createWebviewPanel(): FakePanel {
     const panel = new FakePanel();
@@ -568,7 +574,9 @@ export const window = {
   /** Choose or cancel an actual navigation picker without creating synthetic command arguments. */
   async showQuickPick<T extends vscode.QuickPickItem>(items: readonly T[], options?: vscode.QuickPickOptions): Promise<T | T[] | undefined> {
     this.quickPicks.push(items);
-    const selected = this.quickPickIndex === undefined ? undefined : items[this.quickPickIndex];
+    await this.beforeQuickPick?.();
+    const index = this.quickPickIndexes.length > 0 ? this.quickPickIndexes.shift() : this.quickPickIndex;
+    const selected = index === undefined ? undefined : items[index];
     return selected === undefined ? undefined : options?.canPickMany === true ? [selected] : selected;
   },
 
@@ -632,6 +640,8 @@ export function resetFakeWindow(): void {
   window.statusMessages.length = 0;
   window.quickPicks.length = 0;
   window.quickPickIndex = 0;
+  window.quickPickIndexes.length = 0;
+  window.beforeQuickPick = undefined;
   window.beforeShow = undefined;
   window.activeColorTheme.kind = ColorThemeKind.Dark;
 }
@@ -647,6 +657,7 @@ export function resetFakeEditor(): void {
   workspace.beforeConfigurationUpdate = undefined;
   commands.handlers.clear();
   env.opened.length = 0;
+  env.clipboard.writes.length = 0;
   for (const controller of comments.controllers) controller.dispose();
   comments.controllers.length = 0;
   for (const event of Object.values(editorEvents)) event.dispose();

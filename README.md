@@ -52,7 +52,16 @@ Edited or failed handoffs can be resumed after closing the preview during the sa
 
 Download a `.vsix` from [GitHub Releases](https://github.com/flucas96/local-review/releases), then choose **Extensions → … → Install from VSIX…** in VS Code. The extension is not published on the Marketplace yet.
 
-Open a trusted local Git repository and run **Local Review: Mit Claude verbinden**. Choose a new conversation or continue the last one. Open **Local Review: Änderungen reviewen**, then click the gutter **+** or select code and press **⌘⌥M** on macOS / **Ctrl+Alt+M** on Linux. Write `/a Why this approach?` or `/i Make this change…` and choose **Senden**. Continue directly in the thread's reply field. The current interface uses German labels.
+Open a trusted local Git repository and run **Local Review: Mit Claude verbinden**:
+
+| Choice | Result |
+| --- | --- |
+| **Unterhaltung auswählen** | Claude opens its session picker so you can resume the conversation that built the feature, with its history. |
+| **Neue Unterhaltung** | Start a fresh conversation with review feedback enabled. |
+
+If your chosen conversation is still running, use `/exit` there before resuming it. This preserves the saved conversation; connecting a running process in place is not supported by this release. For a separate terminal app, use **Review → … → Verbindungsbefehl kopieren**, choose existing or new, and paste the command at the shell prompt. It includes the project folder and the review settings. Keep the project's VS Code window open.
+
+Open **Local Review: Änderungen reviewen**, then click the gutter **+** or select code and press **⌘⌥M** on macOS / **Ctrl+Alt+M** on Linux. Write `/a Why this approach?` or `/i Make this change…` and choose **Senden**. Continue directly in the thread's reply field. The current interface uses German labels.
 
 Requires **VS Code 1.100+**, **Node.js 22+**, **Git**, and an installed, authenticated **Claude Code with `asyncRewake` support**. macOS is the primary target; Linux is unverified. Automatic connection is currently unavailable on Windows. [Installation and troubleshooting →](docs/INSTALL.md)
 
@@ -76,7 +85,7 @@ This is an early preview. Native conversations have distinct avatars and compact
 
 The [end-to-end verification report](docs/QA-2026-10-21.md) distinguishes real VS Code clicks, controlled failure simulations and live Claude results, with unverified flows left open.
 
-The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks follow-up work on Claude-to-thread navigation, unread replies, connection diagnostics, and launching a connected conversation from an external terminal. The current automatic launcher uses VS Code's integrated terminal.
+The [daily-workflow audit](https://github.com/flucas96/local-review/issues/4) tracks follow-up work on Claude-to-thread navigation, unread replies and exact session ownership. The launcher opens VS Code's integrated terminal; the copy action supports a separate terminal. [Session connection details](docs/CLAUDE-SESSION-ATTACH.md) distinguish resuming history from a future connection to an already-running process.
 
 - One local workspace folder and one intended agent session.
 - The background watcher expires after 24 hours; reconnect or send Claude a prompt to rearm it.

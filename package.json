@@ -2,7 +2,7 @@
   "name": "local-review",
   "displayName": "Local Review",
   "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "icon": "resources/icon.png",
   "galleryBanner": { "color": "#101B29", "theme": "dark" },
   "publisher": "local-review-dev",
@@ -51,6 +51,7 @@
     ],
     "commands": [
       { "command": "localReview.startClaude", "title": "Mit Claude verbinden", "category": "Local Review", "icon": "$(plug)" },
+      { "command": "localReview.copyClaudeCommand", "title": "Verbindungsbefehl kopieren", "category": "Local Review", "icon": "$(terminal)" },
       { "command": "localReview.addComment", "title": "Kommentar hinzufügen", "category": "Local Review", "icon": "$(comment-add)" },
       { "command": "localReview.openComposer", "title": "Feedback in Seitenansicht schreiben", "category": "Local Review", "icon": "$(open-preview)" },
       { "command": "localReview.openCode", "title": "Code im Editor öffnen", "category": "Local Review", "icon": "$(go-to-file)" },
@@ -81,6 +82,7 @@
       "scm/title": [{ "command": "localReview.openChanges", "when": "scmProvider == git", "group": "navigation@20" }],
       "view/title": [
         { "command": "localReview.startClaude", "when": "view == localReview.threads", "group": "navigation@1" },
+        { "command": "localReview.copyClaudeCommand", "when": "view == localReview.threads", "group": "connection@1" },
         { "command": "localReview.openChanges", "when": "view == localReview.threads", "group": "navigation@2" },
         { "command": "localReview.exportToPr", "when": "view == localReview.threads", "group": "navigation@3" },
         { "command": "localReview.showResolved", "when": "view == localReview.threads && !localReview.showResolved", "group": "navigation@4" },
