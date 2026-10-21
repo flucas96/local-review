@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+- Present native code blocks as darker rounded cards with a visible frame, real inner spacing and a compact file/language header; stored code remains unchanged.
+- Replace long native code-navigation links with compact editor icons and descriptive tooltips.
+- Shorten selection and PR-preview copy; use an accessible editor icon in the side composer too.
+- Reduce the repeated reply-format reminder from 562 to 118 characters; keep the full contract on the reply tool.
+- Redraw the flow as a clean, neutral code-review loop focused on collaborating with an agent.
+- Explain the workflow in plain language and document existing macOS Dictation for comment input.
+
 ## 0.4.0
 
 - Display clearly recognized, unfenced JavaScript/TypeScript declarations in a code box, including existing replies; keep original stored text and explanatory prose intact.

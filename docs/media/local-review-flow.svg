@@ -1,139 +1,101 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1340" viewBox="0 0 1440 1340" role="img" aria-labelledby="title description">
-  <title id="title">Local Review: vom Codekommentar zur Antwort im selben Thread</title>
-  <desc id="description">Ein Kreislauf aus vier Stationen: Du sendest einen Inline-Kommentar in VS Code. Local Review speichert das Ereignis mit seinem Codekontext und beendet die wartende Anfrage eines lokalen Helfers. Der asyncRewake-Hook liefert Claude das Feedback an einem sicheren Verarbeitungspunkt. Claude bestätigt, arbeitet und antwortet über MCP im ursprünglichen Thread. Du entscheidest, wann er erledigt ist. Das Sprachmodell fragt nicht ständig nach: Ein lokaler Helfer verwendet Long Polling. Die separate GitHub-Aktion veröffentlicht erst nach einer bearbeitbaren Vorschau Zusammenfassungen und offene Fragen.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1260" viewBox="0 0 1440 1260" role="img" aria-labelledby="title description">
+  <title id="title">Local Review: Code Review im Dialog mit deinem Agenten</title>
+  <desc id="description">Ein klarer Kreislauf: Änderungen im lokalen Code ansehen, Feedback direkt an einer Zeile mit /a, /i oder /r senden, mit dem Agenten klären oder ändern, anschließend die Antwort und Änderung prüfen. Rückfragen bleiben im selben Thread. Nur der Mensch markiert ihn als erledigt. Eine separate optionale Aktion überträgt Zusammenfassungen und offene Fragen nach einer Vorschau in den bestehenden GitHub-PR. Die gezeigten Code- und Kommentarausschnitte sind nachgestellt.</desc>
   <defs>
     <style>
-      text { font-family: Arial, Helvetica, sans-serif; font-synthesis: none; }
-      .ink { fill: #19334c; }
-      .navy { fill: #003781; }
-      .teal { fill: #147c79; }
-      .muted { fill: #64798b; }
-      .eyebrow { font-size: 18px; letter-spacing: 2px; }
-      .heading { font-size: 50px; font-weight: 400; letter-spacing: -1.5px; }
-      .card-title { font-size: 29px; font-weight: 400; letter-spacing: -.5px; }
-      .body { font-size: 22px; }
-      .small { font-size: 20px; }
-      .micro { font-size: 18px; }
-      .line-icon { fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
-      .arrow { fill: none; stroke: #a5bccf; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-      .card { fill: #fff; stroke: #dce5ed; stroke-width: 1.5; }
+      text{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-synthesis:none}
+      .ink{fill:#242a30}.muted{fill:#737d80}.teal{fill:#23766b}
+      .heading{font-size:58px;font-weight:450;letter-spacing:-1.8px}
+      .card-title{font-size:28px;font-weight:450;letter-spacing:-.5px}
+      .small{font-size:19px}.micro{font-size:17px}.body{font-size:22px}
+      .code,.code text{font-family:'SFMono-Regular',Menlo,Monaco,Consolas,'Liberation Mono',monospace;font-size:19px;fill:#37424a}
+      .keyword{fill:#705c9b}.function{fill:#2b6f8e}.number{fill:#52704f}
+      .icon{fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
+      .arrow{fill:none;stroke:#b6c5c0;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+      .card{fill:#fff;stroke:#dce3df;stroke-width:1.3}
+      .fragment{fill:#f7f9f7;stroke:#e5eae6;stroke-width:1}
     </style>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
-      <path d="m2 1 4 4-4 4" fill="none" stroke="#a5bccf" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m2 1 4 4-4 4" fill="none" stroke="#b6c5c0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
     </marker>
-    <symbol id="comment" viewBox="0 0 32 32">
-      <path d="M7 6h18a3 3 0 0 1 3 3v13a3 3 0 0 1-3 3H14l-7 5v-5a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3Z"/>
-      <path d="m13 12-4 4 4 4m6-8 4 4-4 4"/>
-    </symbol>
-    <symbol id="storage" viewBox="0 0 32 32">
-      <ellipse cx="16" cy="7" rx="11" ry="4"/>
-      <path d="M5 7v9c0 2.2 4.9 4 11 4s11-1.8 11-4V7M5 16v9c0 2.2 4.9 4 11 4s11-1.8 11-4v-9"/>
-    </symbol>
-    <symbol id="terminal" viewBox="0 0 32 32">
-      <rect x="3" y="5" width="26" height="23" rx="3"/>
-      <path d="m9 12 5 5-5 5m9 0h6"/>
-    </symbol>
-    <symbol id="thread" viewBox="0 0 32 32">
-      <path d="M23 17h3a3 3 0 0 1 3 3v6h-4l-4 4v-4h-7a3 3 0 0 1-3-3v-1"/>
-      <path d="M6 3h17a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H12l-6 5v-5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z"/>
-      <path d="M9 9h11M9 13h7"/>
-    </symbol>
-    <symbol id="wait" viewBox="0 0 32 32">
-      <circle cx="16" cy="16" r="12"/>
-      <path d="M16 8v8l5 3M3 6l4-3m18 0 4 3"/>
-    </symbol>
-    <symbol id="check" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9"/>
-      <path d="m8 12 3 3 5-6"/>
-    </symbol>
-    <symbol id="branch" viewBox="0 0 32 32">
-      <circle cx="8" cy="6" r="3"/>
-      <circle cx="8" cy="26" r="3"/>
-      <circle cx="25" cy="6" r="3"/>
-      <path d="M8 9v14m17-14v3c0 7-17 2-17 10"/>
-    </symbol>
-    <symbol id="preview" viewBox="0 0 32 32">
-      <path d="M4 16S8 8 16 8s12 8 12 8-4 8-12 8S4 16 4 16Z"/>
-      <circle cx="16" cy="16" r="3"/>
-    </symbol>
-    <symbol id="send" viewBox="0 0 32 32">
-      <path d="m3 14 26-11-8 26-6-11-12-4Z"/>
-      <path d="m15 18 14-15"/>
-    </symbol>
+    <symbol id="diff" viewBox="0 0 32 32"><rect x="5" y="3" width="22" height="26" rx="3"/><path d="M11 10h10m-5 5v8m-4-4h8"/></symbol>
+    <symbol id="comment" viewBox="0 0 32 32"><path d="M7 5h18a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H14l-7 5v-5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z"/><path d="M10 12h12M10 18h8"/></symbol>
+    <symbol id="dialog" viewBox="0 0 32 32"><path d="M6 3h16a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H11l-5 4v-4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z"/><path d="M13 24v1a3 3 0 0 0 3 3h8l5 3v-3a3 3 0 0 0 2-3V14a3 3 0 0 0-3-3M9 9h10M9 13h6"/></symbol>
+    <symbol id="check" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="m10 16 4 4 8-9"/></symbol>
+    <symbol id="branch" viewBox="0 0 24 24"><circle cx="6" cy="4" r="2.5"/><circle cx="6" cy="20" r="2.5"/><circle cx="19" cy="4" r="2.5"/><path d="M6 7v10m13-10v2c0 6-13 1-13 8"/></symbol>
+    <symbol id="eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="send" viewBox="0 0 24 24"><path d="m2 11 20-9-6 20-5-9-9-2Zm9 2L22 2"/></symbol>
   </defs>
+  <rect width="1440" height="1260" fill="#f7f8f6"/>
+  <path d="M64 64h28" stroke="#23766b" stroke-width="3" stroke-linecap="round"/>
+  <text x="108" y="71" class="micro muted" letter-spacing="2">LOCAL REVIEW</text>
+  <text x="1376" y="71" text-anchor="end" class="micro muted">MENSCH + AGENT · GEMEINSAM AM CODE</text>
+  <text x="64" y="158" class="heading ink">Code Review.</text>
+  <text x="64" y="224" class="heading teal">Im Dialog mit deinem Agenten.</text>
+  <text x="64" y="272" class="body muted">Änderungen verstehen. Fragen klären. Gemeinsam verbessern.</text>
 
-  <rect width="1440" height="1340" fill="#fff"/>
-  <rect x="64" y="57" width="7" height="24" rx="3.5" fill="#147c79"/>
-  <text x="88" y="77" class="eyebrow muted">LOCAL REVIEW · SO FUNKTIONIERT ES</text>
-  <text x="64" y="153" class="heading navy">Du reviewst den Code.</text>
-  <text x="64" y="212" class="heading teal">Claude bekommt dein Feedback.</text>
-  <text x="64" y="260" class="body muted">Direkt an der Zeile · automatisch zugestellt · Antwort im selben Thread</text>
+  <path d="M688 465h64" class="arrow" marker-end="url(#arrow)"/>
+  <path d="M1076 615v58" class="arrow" marker-end="url(#arrow)"/>
+  <path d="M752 839h-64" class="arrow" marker-end="url(#arrow)"/>
+  <path d="M64 839H30V465h24" class="arrow" stroke-dasharray="4 9" marker-end="url(#arrow)"/>
 
-  <path d="M674 442h92" class="arrow" marker-end="url(#arrow)"/>
-  <path d="M1083 585v64" class="arrow" marker-end="url(#arrow)"/>
-  <path d="M766 787h-92" class="arrow" marker-end="url(#arrow)"/>
-  <path d="M64 787H29V442h25" class="arrow" stroke-dasharray="5 9" marker-end="url(#arrow)"/>
+  <rect x="64" y="338" width="600" height="256" rx="13" class="card"/>
+  <use href="#diff" x="93" y="367" width="34" height="34" class="icon" color="#23766b"/>
+  <text x="146" y="378" class="micro muted" letter-spacing="1.3">DU REVIEWST</text>
+  <text x="146" y="413" class="card-title ink">Änderungen ansehen</text>
+  <rect x="92" y="438" width="544" height="128" rx="7" class="fragment"/>
+  <text x="108" y="465" class="micro muted">retry.js · lokale Änderungen</text>
+  <text x="109" y="499" class="code"><tspan fill="#8a9594">7</tspan>   <tspan class="keyword">return await</tspan> <tspan class="function">operation</tspan>();</text>
+  <text x="109" y="526" class="code"><tspan fill="#8a9594">8</tspan> } <tspan class="keyword">catch</tspan> (error) {</text>
+  <rect x="100" y="536" width="528" height="25" rx="3" fill="#e3f0e8"/>
+  <text x="109" y="555" class="code"><tspan fill="#3d7b60">+</tspan>   <tspan class="keyword">await</tspan> <tspan class="function">delay</tspan>(<tspan class="number">1000</tspan>);</text>
 
-  <rect x="64" y="320" width="585" height="245" rx="17" class="card"/>
-  <rect x="91" y="347" width="54" height="54" rx="13" fill="#edf4fa"/>
-  <use href="#comment" x="102" y="357" width="32" height="32" class="line-icon" color="#003781"/>
-  <text x="162" y="369" class="micro muted" letter-spacing="1.7">VS CODE</text>
-  <text x="162" y="403" class="card-title navy">Kommentar senden</text>
-  <text x="92" y="448" class="body ink">Code markieren, Feedback schreiben</text>
-  <text x="92" y="479" class="body ink">und mit einem Klick absenden.</text>
-  <rect x="91" y="503" width="530" height="39" rx="8" fill="#edf4fa"/>
-  <text x="108" y="529" class="small navy">/a Frage</text>
-  <path d="M236 513v18M409 513v18" stroke="#c9d9e6"/>
-  <text x="253" y="529" class="small navy">/i Umsetzen</text>
-  <text x="427" y="529" class="small navy">/r Resümee</text>
+  <rect x="776" y="338" width="600" height="256" rx="13" class="card"/>
+  <use href="#comment" x="805" y="367" width="34" height="34" class="icon" color="#23766b"/>
+  <text x="858" y="378" class="micro muted" letter-spacing="1.3">DU GIBST KONTEXT</text>
+  <text x="858" y="413" class="card-title ink">Feedback direkt am Code</text>
+  <rect x="804" y="438" width="544" height="128" rx="7" class="fragment"/>
+  <text x="820" y="465" class="micro muted">retry.js:9 · Neuer Kommentar</text>
+  <text x="820" y="503" class="body ink"><tspan class="teal" font-weight="500">/i</tspan> Nutze exponentielles Backoff.</text>
+  <text x="820" y="545" class="micro muted">/a fragen · /i ändern · /r zusammenfassen</text>
+  <rect x="1255" y="521" width="77" height="31" rx="5" fill="#23766b"/>
+  <text x="1293" y="542" text-anchor="middle" font-size="16" fill="#fff">Senden</text>
 
-  <rect x="791" y="320" width="585" height="245" rx="17" class="card"/>
-  <rect x="818" y="347" width="54" height="54" rx="13" fill="#eaf5f3"/>
-  <use href="#storage" x="829" y="357" width="32" height="32" class="line-icon" color="#147c79"/>
-  <text x="889" y="369" class="micro muted" letter-spacing="1.7">AUF DEINEM RECHNER</text>
-  <text x="889" y="403" class="card-title navy">Speichern &amp; übergeben</text>
-  <text x="819" y="448" class="body ink">Datei, Zeilen und Kontext bleiben erhalten.</text>
-  <text x="819" y="479" class="body ink">Ein lokaler Helfer wartet auf neue Arbeit.</text>
-  <rect x="818" y="503" width="530" height="39" rx="8" fill="#eaf5f3"/>
-  <text x="835" y="529" class="small teal">Gespeichert → wartende Anfrage endet</text>
+  <rect x="776" y="711" width="600" height="256" rx="13" class="card"/>
+  <use href="#dialog" x="805" y="740" width="34" height="34" class="icon" color="#23766b"/>
+  <text x="858" y="751" class="micro muted" letter-spacing="1.3">IHR ARBEITET ZUSAMMEN</text>
+  <text x="858" y="786" class="card-title ink">Klären oder ändern</text>
+  <rect x="804" y="811" width="544" height="128" rx="7" class="fragment"/>
+  <text x="820" y="838" class="micro muted">Agent · Antwort im selben Thread</text>
+  <text x="820" y="874" class="body ink">Backoff ergänzt: 1 s → 2 s.</text>
+  <rect x="819" y="890" width="514" height="33" rx="4" fill="#eef2f0"/>
+  <text x="830" y="912" class="code"><tspan class="keyword">await</tspan> <tspan class="function">delay</tspan>(<tspan class="number">1000</tspan> * <tspan class="number">2</tspan> ** (attempt - <tspan class="number">1</tspan>));</text>
 
-  <rect x="791" y="665" width="585" height="245" rx="17" class="card"/>
-  <rect x="818" y="692" width="54" height="54" rx="13" fill="#edf4fa"/>
-  <use href="#terminal" x="829" y="702" width="32" height="32" class="line-icon" color="#003781"/>
-  <text x="889" y="714" class="micro muted" letter-spacing="1.7">CLAUDE CODE</text>
-  <text x="889" y="748" class="card-title navy">Empfangen &amp; bearbeiten</text>
-  <text x="819" y="793" class="body ink">Der Hook liefert Feedback am sicheren Punkt.</text>
-  <text x="819" y="824" class="body ink">Laufende Tools dürfen zuerst fertig werden.</text>
-  <rect x="818" y="848" width="530" height="39" rx="8" fill="#edf4fa"/>
-  <text x="835" y="874" class="small navy">Via MCP: bestätigen · arbeiten · antworten</text>
+  <rect x="64" y="711" width="600" height="256" rx="13" class="card"/>
+  <use href="#check" x="93" y="740" width="34" height="34" class="icon" color="#23766b"/>
+  <text x="146" y="751" class="micro muted" letter-spacing="1.3">DU ENTSCHEIDEST</text>
+  <text x="146" y="786" class="card-title ink">Prüfen &amp; abschließen</text>
+  <rect x="92" y="811" width="544" height="128" rx="7" class="fragment"/>
+  <text x="108" y="838" class="micro muted">Änderung und Antwort zusammen prüfen</text>
+  <text x="108" y="873" font-size="21" fill="#2b6f8e">Im Editor öffnen ↗</text>
+  <rect x="108" y="891" width="147" height="31" rx="5" fill="#fff" stroke="#d6dfda"/>
+  <text x="181" y="912" text-anchor="middle" font-size="16" class="ink">Weiterfragen</text>
+  <rect x="481" y="891" width="139" height="31" rx="5" fill="#23766b"/>
+  <path d="m496 906 4 4 7-8" class="icon" color="#fff"/>
+  <text x="562" y="912" text-anchor="middle" font-size="16" fill="#fff">Erledigen</text>
 
-  <rect x="64" y="665" width="585" height="245" rx="17" fill="#f6faf9" stroke="#cbdedb" stroke-width="1.5"/>
-  <rect x="91" y="692" width="54" height="54" rx="13" fill="#e1f0ec"/>
-  <use href="#thread" x="102" y="702" width="32" height="32" class="line-icon" color="#147c79"/>
-  <text x="162" y="714" class="micro muted" letter-spacing="1.7">NATIVER REVIEW-THREAD</text>
-  <text x="162" y="748" class="card-title navy">Antwort am Code</text>
-  <text x="92" y="793" class="body ink">Die Antwort erscheint in deiner Unterhaltung.</text>
-  <text x="92" y="824" class="body ink">Frag weiter oder prüfe die Änderung.</text>
-  <use href="#check" x="92" y="852" width="27" height="27" class="line-icon" color="#147c79"/>
-  <text x="130" y="874" class="small teal">Du entscheidest, wann der Thread erledigt ist.</text>
-
-  <rect x="64" y="953" width="1312" height="130" rx="15" fill="#003781"/>
-  <use href="#wait" x="92" y="986" width="46" height="46" class="line-icon" color="#8bd1d0"/>
-  <text x="161" y="993" fill="#fff" font-size="27">Das LLM fragt nicht ständig nach.</text>
-  <text x="161" y="1027" fill="#d2e1ef" class="body">Ein lokaler Helfer wartet per Long Polling. Neue Kommentare beenden die Anfrage sofort.</text>
-  <text x="161" y="1057" fill="#b7cfe5" class="small">Keine manuellen Check-ins bei Claude. Der Standardweg ist ein asyncRewake-Hook plus MCP.</text>
-
-  <text x="64" y="1141" class="eyebrow muted">OPTIONAL · SEPARATE GITHUB-AKTION</text>
-  <use href="#branch" x="66" y="1175" width="32" height="32" class="line-icon" color="#003781"/>
-  <text x="112" y="1197" class="small navy">Resümees + offene Fragen</text>
-  <path d="M401 1189h55" class="arrow" marker-end="url(#arrow)"/>
-  <use href="#preview" x="484" y="1175" width="32" height="32" class="line-icon" color="#147c79"/>
-  <text x="531" y="1197" class="small navy">Vorschau bearbeiten</text>
-  <path d="M773 1189h55" class="arrow" marker-end="url(#arrow)"/>
-  <use href="#send" x="856" y="1175" width="32" height="32" class="line-icon" color="#003781"/>
-  <text x="903" y="1197" class="small navy">Bewusst im bestehenden PR veröffentlichen</text>
-  <text x="64" y="1240" class="small muted">/r bleibt lokal. Erst die PR-Aktion schreibt den geprüften Entwurf als GitHub-Kommentar.</text>
-  <path d="M64 1283h1312" stroke="#dce5ed"/>
-  <text x="64" y="1316" class="micro muted">Standardverbindung: Hooks + MCP · Claude muss mit Local Review verbunden sein.</text>
-  <text x="1376" y="1316" text-anchor="end" class="micro muted">local-review · Architektur v0.4</text>
+  <text x="720" y="1031" text-anchor="middle" font-size="23" class="muted">Eine Unterhaltung am Code — bis die Änderung passt.</text>
+  <path d="M64 1090h1312" stroke="#dce3df"/>
+  <text x="64" y="1140" class="ink" font-size="24">Bei Bedarf: in den GitHub-PR übernehmen</text>
+  <text x="64" y="1176" class="muted" font-size="19">Zusammenfassungen + offene Fragen</text>
+  <use href="#branch" x="670" y="1143" width="25" height="25" class="icon" color="#737d80"/>
+  <text x="708" y="1164" class="small ink">Auswählen</text>
+  <path d="M830 1154h36" class="arrow" marker-end="url(#arrow)"/>
+  <use href="#eye" x="895" y="1143" width="25" height="25" class="icon" color="#737d80"/>
+  <text x="933" y="1164" class="small ink">Vorschau</text>
+  <path d="M1040 1154h36" class="arrow" marker-end="url(#arrow)"/>
+  <use href="#send" x="1105" y="1143" width="25" height="25" class="icon" color="#23766b"/>
+  <text x="1143" y="1164" class="small teal">Veröffentlichen</text>
+  <text x="64" y="1230" font-size="16" fill="#8a9390">Nachgestellte UI-Ausschnitte · Beispiel mit Claude Code · Feedback wird nach dem Senden automatisch zugestellt</text>
+  <text x="1376" y="1230" text-anchor="end" font-size="16" fill="#8a9390">LOCAL REVIEW</text>
 </svg>

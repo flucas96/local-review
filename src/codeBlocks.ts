@@ -11,6 +11,8 @@ interface FencedBlock extends CodeBlock {
   markerEnd: number;
   start: number;
   end: number;
+  closed: boolean;
+  fence: string;
 }
 
 interface MarkdownLine {
@@ -48,6 +50,7 @@ function fencedBlocks(markdown: string): FencedBlock[] {
           index: blocks.length, code: markdown.slice(opening.codeStart, line.start),
           language: opening.language, markerEnd: opening.markerEnd,
           start: opening.start, end: line.end,
+          closed: true, fence: opening.marker.repeat(opening.length),
         });
         opening = undefined;
       }
@@ -71,6 +74,7 @@ function fencedBlocks(markdown: string): FencedBlock[] {
       index: blocks.length, code: markdown.slice(opening.codeStart),
       language: opening.language, markerEnd: opening.markerEnd,
       start: opening.start, end: markdown.length,
+      closed: false, fence: opening.marker.repeat(opening.length),
     });
   }
   return blocks;
@@ -97,6 +101,89 @@ export function withCodeBlockLanguages(markdown: string, fallbackLanguage: strin
     start = block.markerEnd;
   }
   return result + markdown.slice(start);
+}
+
+/** Neutralize original HTML while preserving single-line inline code, autolinks, entities, and blockquotes. */
+function escapeProseHtml(markdown: string): string {
+  let escaped = '';
+  let offset = 0;
+  while (offset < markdown.length) {
+    if (markdown[offset] === '`') {
+      let precedingSlashes = 0;
+      for (let index = offset - 1; index >= 0 && markdown[index] === '\\'; index -= 1) precedingSlashes += 1;
+      if (precedingSlashes % 2 === 1) {
+        escaped += '`';
+        offset += 1;
+        continue;
+      }
+      let end = offset + 1;
+      while (markdown[end] === '`') end += 1;
+      const fence = markdown.slice(offset, end);
+      let closing = markdown.indexOf(fence, end);
+      while (closing >= 0 && (markdown[closing - 1] === '`' || markdown[closing + fence.length] === '`')) {
+        closing = markdown.indexOf(fence, closing + fence.length);
+      }
+      if (closing >= 0) {
+        const span = markdown.slice(offset, closing + fence.length);
+        escaped += /[\r\n]/u.test(span) ? span.replaceAll('<', '&lt;') : span;
+        offset = closing + fence.length;
+        continue;
+      }
+      escaped += fence;
+      offset = end;
+      continue;
+    }
+    if (markdown[offset] === '<') {
+      const link = /^<(?:[A-Za-z][A-Za-z\d+.-]{1,31}:[^<>\s]*|[A-Za-z\d.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z\d](?:[A-Za-z\d.-]*[A-Za-z\d])?)>/u.exec(markdown.slice(offset))?.[0];
+      if (link !== undefined) {
+        escaped += link;
+        offset += link.length;
+        continue;
+      }
+      escaped += '&lt;';
+    } else {
+      escaped += markdown[offset];
+    }
+    offset += 1;
+  }
+  return escaped;
+}
+
+/** Escape a generated HTML header as plain text, including theme-icon syntax. */
+function cardTitle(text: string): string {
+  return text.slice(0, 512).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('$', '&#36;').replace(/[\r\n]/gu, ' ');
+}
+
+/**
+ * Wrap fenced code in theme-aware native-comment cards and neutralize all original HTML.
+ * Generated markup is display-only; navigation must continue reading undecorated Markdown.
+ */
+export function withCodeBlockCards(
+  markdown: string,
+  fallbackLanguage: string,
+  headerForBlock: (block: CodeBlock) => string = block => block.language || 'Code',
+): string {
+  const display = withCodeBlockLanguages(markdown, fallbackLanguage);
+  let result = '';
+  let copied = 0;
+  for (const block of fencedBlocks(display)) {
+    const newline = display.slice(block.start, block.end).includes('\r\n') ? '\r\n' : '\n';
+    let fenced = display.slice(block.start, block.end);
+    if (!block.closed) fenced += (fenced.endsWith('\n') ? '' : newline) + block.fence;
+    const header = cardTitle(headerForBlock({ index: block.index, code: block.code, language: block.language }));
+    // Native Markdown strips CSS borders and padding; approved layout-cell spacing supplies both.
+    result += escapeProseHtml(display.slice(copied, block.start))
+      + '<div><span style="background-color:var(--vscode-editorWidget-border);display:inline-block;border-radius:6px;"><table><tr><td>'
+      + '<span style="background-color:var(--vscode-editor-background);display:inline-block;border-radius:5px;"><table>'
+      + '<tr><td width="8"></td><td height="4"></td><td width="8"></td></tr><tr><td></td><td>'
+      + '<span style="color:var(--vscode-descriptionForeground);">' + header + '</span>'
+      + newline + newline + fenced + newline + newline
+      + '</td><td></td></tr><tr><td></td><td height="4"></td><td></td></tr></table></span></td></tr></table></span>'
+      + newline + '</div>' + newline + newline;
+    copied = block.end;
+  }
+  return result + escapeProseHtml(display.slice(copied));
 }
 
 interface CodeToken {

@@ -23,7 +23,7 @@ function fixture(text: string, author: ReviewMessage['author'] = 'claude'): { th
 
 /** Decode generated command arguments exactly as VS Code would pass them. */
 function handles(markdown: string): unknown[] {
-  return [...markdown.matchAll(/\]\(command:localReview\.openCode\?([^)]*)\)/gu)]
+  return [...markdown.matchAll(/\]\(command:localReview\.openCode\?([^\s)]+)(?: "[^"]*")?\)/gu)]
     .flatMap((match) => JSON.parse(decodeURIComponent(match[1] ?? '')) as unknown[]);
 }
 
@@ -32,6 +32,7 @@ test('generates opaque handles that resolve only to stored identities', () => {
   const { thread, message } = fixture('```typescript\nconst secret = 1;\n```');
   const rendered = references.render(thread, message, 'javascript');
   const [handle] = handles(rendered);
+  assert.match(rendered, /^\[\$\(go-to-file\)\]\(command:localReview\.openCode\?\S+ "Code im Editor öffnen"\)/u);
   assert.equal(openCodeCommand, 'localReview.openCode');
   assert.match(String(handle), /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/u);
   assert.deepEqual(references.resolve(handle), { threadId: thread.id, messageId: message.id, blockIndex: 0 });
@@ -69,7 +70,7 @@ test('adds a context action to Claude prose while preserving human prose exactly
   const references = new CodeReferences();
   const { thread, message } = fixture('Please inspect `retry()` in the selected code.');
   const rendered = references.render(thread, message, 'javascript');
-  assert.equal(rendered.startsWith('[Codekontext im Editor öffnen]'), true);
+  assert.match(rendered, /^\[\$\(go-to-file\)\]\(command:localReview\.openCode\?\S+ "Codekontext im Editor öffnen"\)/u);
   assert.equal(rendered.endsWith(message.text), true);
   assert.deepEqual(references.resolve(handles(rendered)[0]), { threadId: thread.id, messageId: message.id });
   assert.equal(references.render(thread, { ...message, author: 'human' }, 'javascript'), message.text);
@@ -80,7 +81,9 @@ test('adds a display-only fallback language without mutating durable review text
   const { thread, message } = fixture('Inspect this:\n```\nvalue();\n```', 'human');
   const before = JSON.stringify(thread);
   const rendered = references.render(thread, message, 'typescript');
-  assert.equal(rendered.endsWith('Inspect this:\n```typescript\nvalue();\n```'), true);
+  assert.ok(rendered.startsWith('[$(go-to-file)]'));
+  assert.ok(rendered.includes('Inspect this:'));
+  assert.ok(rendered.includes('```typescript\nvalue();\n```'));
   assert.equal(JSON.stringify(thread), before);
   assert.deepEqual(references.resolve(handles(rendered)[0]), { threadId: thread.id, messageId: message.id, blockIndex: 0 });
 });
@@ -95,6 +98,7 @@ test('repairs legacy declarations into one code box and preserves mixed block ac
   assert.ok(rendered.includes('More context.'));
   assert.equal(JSON.stringify(thread), before);
   const actions = handles(rendered);
+  assert.match(rendered, /^\[\$\(go-to-file\) 1\]\(command:localReview\.openCode\?\S+ "Code 1 im Editor öffnen"\) · \[\$\(go-to-file\) 2\]\(command:localReview\.openCode\?\S+ "Code 2 im Editor öffnen"\)/u);
   assert.deepEqual(actions.map((handle) => references.resolve(handle)?.blockIndex), [0, 1]);
 });
 
@@ -116,9 +120,10 @@ test('prepends clickable actions before unclosed fences', () => {
   const references = new CodeReferences();
   const { thread, message } = fixture('Before\n```\nconst value = 1;');
   const rendered = references.render(thread, message, 'typescript');
-  assert.equal(rendered.startsWith('[Code im Editor öffnen](command:'), true);
+  assert.equal(rendered.startsWith('[$(go-to-file)](command:'), true);
   assert.equal(rendered.indexOf('](command:') < rendered.indexOf('```typescript'), true);
-  assert.equal(rendered.endsWith('Before\n```typescript\nconst value = 1;'), true);
+  assert.ok(rendered.includes('Before\n'));
+  assert.ok(rendered.includes('```typescript\nconst value = 1;\n```'));
   assert.deepEqual(references.resolve(handles(rendered)[0]), { threadId: thread.id, messageId: message.id, blockIndex: 0 });
 });
 
@@ -131,4 +136,16 @@ test('original command links do not become extension-owned handles', () => {
   assert.equal(rendered.includes(malicious), true);
   assert.equal(references.resolve(attackerHandle), undefined);
   assert.equal(references.resolve(handles(rendered)[0])?.blockIndex, 0);
+});
+
+test('enables only generated card markup while preserving source and neutralizing model HTML', () => {
+  const references = new CodeReferences();
+  const { thread, message } = fixture('<img src="https://example.invalid/track">\n\n```html\n<div>source</div>\n```');
+  const before = JSON.stringify(thread);
+  const rendered = references.render(thread, message, 'html');
+  assert.ok(rendered.includes('&lt;img'));
+  assert.ok(!rendered.includes('<img'));
+  assert.ok(rendered.includes('<span style="background-color:var(--vscode-editor-background);display:inline-block;border-radius:5px;">'));
+  assert.ok(rendered.includes('```html\n<div>source</div>\n```'));
+  assert.equal(JSON.stringify(thread), before);
 });

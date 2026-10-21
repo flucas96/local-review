@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { readCodeBlocks, withCodeBlockLanguages, withDetectedCodeBlocks } from './codeBlocks.js';
+import { basename } from 'node:path';
+import { readCodeBlocks, withCodeBlockCards, withDetectedCodeBlocks } from './codeBlocks.js';
 import type { ReviewMessage, ReviewThread } from './contracts.js';
 
 export const openCodeCommand = 'localReview.openCode';
@@ -22,13 +23,15 @@ export class CodeReferences {
     const blocks = readCodeBlocks(displayText);
     const actionable = blocks.filter((block) => block.code.trim().length > 0).slice(0, 20);
     const actions = actionable.map((block) => this.link(
+      actionable.length === 1 ? '$(go-to-file)' : `$(go-to-file) ${block.index + 1}`,
       actionable.length === 1 ? 'Code im Editor öffnen' : `Code ${block.index + 1} im Editor öffnen`,
       { threadId: thread.id, messageId: message.id, blockIndex: block.index },
     ));
     if (blocks.length === 0 && message.author === 'claude') {
-      actions.push(this.link('Codekontext im Editor öffnen', { threadId: thread.id, messageId: message.id }));
+      actions.push(this.link('$(go-to-file)', 'Codekontext im Editor öffnen', { threadId: thread.id, messageId: message.id }));
     }
-    const markdown = withCodeBlockLanguages(displayText, fallbackLanguage);
+    const markdown = withCodeBlockCards(displayText, fallbackLanguage,
+      (block) => `${basename(thread.anchor.path)} · ${block.language || 'Code'}`);
     return actions.length === 0 ? markdown : `${actions.join(' · ')}\n\n${markdown}`;
   }
 
@@ -44,7 +47,7 @@ export class CodeReferences {
   }
 
   /** Reuse an opaque handle for stable rerenders of the same immutable snippet. */
-  private link(label: string, reference: CodeReference): string {
+  private link(label: string, title: string, reference: CodeReference): string {
     const key = JSON.stringify([reference.threadId, reference.messageId, reference.blockIndex ?? null]);
     let handle = this.handles.get(key);
     if (handle === undefined) {
@@ -52,6 +55,6 @@ export class CodeReferences {
       this.handles.set(key, handle);
       this.references.set(handle, Object.freeze(reference));
     }
-    return `[${label}](command:${openCodeCommand}?${encodeURIComponent(JSON.stringify([handle]))})`;
+    return `[${label}](command:${openCodeCommand}?${encodeURIComponent(JSON.stringify([handle]))} "${title}")`;
   }
 }

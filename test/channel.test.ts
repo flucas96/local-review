@@ -6,6 +6,7 @@ import test from 'node:test';
 import type { TestContext } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import type { ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import { createReviewBridge } from '../src/bridge.js';
 import { record } from '../src/connection.js';
 import type { CodeAnchor, ReviewBridge, ReviewStore } from '../src/contracts.js';
@@ -18,6 +19,7 @@ interface ChannelFixture {
   readonly restartBridge: () => Promise<void>;
   readonly deliveries: ReadonlyMap<string, readonly string[]>;
   readonly reply: (eventId: string, text: string) => Promise<void>;
+  readonly listTools: () => Promise<ListToolsResult>;
 }
 
 /** Connect the packaged MCP server to a real client without involving an LLM. */
@@ -77,6 +79,7 @@ async function fixture(t: TestContext): Promise<ChannelFixture> {
 
   return {
     store, deliveries, waitForReview,
+    listTools: () => client.listTools(),
     connect: () => client.connect(transport),
     reply: async (eventId, text) => {
       const response = await client.callTool({ name: 'reply_to_review', arguments: { event_id: eventId, text, status: 'answered' } });
@@ -129,10 +132,21 @@ test('recovers unfinished work again after the extension connection changes', { 
 });
 
 test('preserves fenced reply code, indentation, and actual newlines through the MCP bridge', { timeout: 15_000 }, async (t) => {
-  const { store, connect, waitForReview, reply } = await fixture(t);
+  const { store, connect, waitForReview, reply, listTools } = await fixture(t);
   await connect();
+  const tools = await listTools();
+  const replyTool = tools.tools.find((tool) => tool.name === 'reply_to_review');
+  const replyText = record(record(replyTool?.inputSchema.properties)?.text);
+  const instructions = replyText?.description;
+  assert.ok(typeof instructions === 'string');
+  assert.match(instructions, /import statements and functions that happen to fit on one line/u);
+  assert.match(instructions, /each logical code line.*separate lines/u);
+  assert.match(instructions, /indentation and actual newlines/u);
   const thread = await store.submit(anchor(), 'How would you calculate the retry delay?', 'ask');
-  await waitForReview(thread.latestEventId);
+  const event = await waitForReview(thread.latestEventId);
+  assert.match(event, /Fence all code, including imports and one-line functions, with a language tag/u);
+  assert.match(event, /Preserve indentation and real newlines/u);
+  assert.doesNotMatch(event, /functions that happen to fit on one line/u);
   const markdown = [
     'The delay doubles after each attempt:',
     '',

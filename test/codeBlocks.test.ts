@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readCodeBlocks, withCodeBlockLanguages, withDetectedCodeBlocks } from '../src/codeBlocks.js';
+import { readCodeBlocks, withCodeBlockCards, withCodeBlockLanguages, withDetectedCodeBlocks } from '../src/codeBlocks.js';
 import { maximumReviewTextLength } from '../src/limits.js';
 
 test('extracts language-tagged code in message order without inline code or prose', () => {
@@ -161,4 +161,65 @@ test('keeps apparent existing fences intact even inside an unfenced code-looking
 test('bounds detection and leaves oversized source text unchanged', () => {
   const markdown = `export function example() { return 1; }\n\n${'x'.repeat(maximumReviewTextLength)}`;
   assert.equal(withDetectedCodeBlocks(markdown, 'javascript'), markdown);
+});
+
+test('renders theme-aware code cards while keeping code bytes and block indexes intact', () => {
+  const markdown = 'Before.\n\n```javascript\nconst label = "<div>";\n```\n\n~~~python\nprint(1)\n~~~\n\nAfter.';
+  const seen: number[] = [];
+  const rendered = withCodeBlockCards(markdown, 'typescript', block => {
+    seen.push(block.index);
+    return `example.js · ${block.language}`;
+  });
+  assert.deepEqual(seen, [0, 1]);
+  assert.equal((rendered.match(/background-color:var\(--vscode-editorWidget-border\)/gu) ?? []).length, 2);
+  assert.equal(rendered.includes('<td width="8"></td><td height="4"></td>'), true);
+  assert.equal(rendered.includes('example.js · javascript</span>\n\n```javascript\nconst label = "<div>";\n```'), true);
+  assert.deepEqual(readCodeBlocks(rendered), readCodeBlocks(markdown));
+  assert.equal(rendered.startsWith('Before.\n\n'), true);
+  assert.ok(rendered.includes('</span>\n</div>'));
+  assert.equal(rendered.endsWith('\n\nAfter.'), true);
+});
+
+test('neutralizes original raw HTML but preserves inline code, links, entities, and blockquotes', () => {
+  const markdown = '<img src=x onerror="alert(1)">\n\n> Keep this quote &amp; entity.\n\n`<div>` and ``<script>`</script>``.\n\n<https://example.com/path> <user@example.com> [Open](command:localReview.openCode?%5B%22id%22%5D)\n\n```html\n<script>alert(1)</script>\n```';
+  const rendered = withCodeBlockCards(markdown, 'plaintext');
+  assert.equal(rendered.includes('<img'), false);
+  assert.equal(rendered.startsWith('&lt;img src=x onerror="alert(1)">'), true);
+  assert.equal(rendered.includes('> Keep this quote &amp; entity.'), true);
+  assert.equal(rendered.includes('`<div>` and ``<script>`</script>``.'), true);
+  assert.equal(rendered.includes('<https://example.com/path> <user@example.com>'), true);
+  assert.equal(rendered.includes('[Open](command:localReview.openCode?%5B%22id%22%5D)'), true);
+  assert.equal(readCodeBlocks(rendered)[0]?.code, '<script>alert(1)</script>\n');
+});
+
+test('escapes generated card titles instead of enabling HTML or Markdown actions', () => {
+  const rendered = withCodeBlockCards('```\nvalue();\n```', 'javascript', () => '<img> [run](command:evil) &lt;\nnext');
+  assert.equal(rendered.includes('>&lt;img&gt; [run](command:evil) &amp;lt; next</span>'), true);
+  assert.equal(rendered.includes('<img>'), false);
+  assert.ok(!rendered.includes('<img>'));
+});
+
+test('does not exempt raw HTML after escaped backticks or across paragraph boundaries', () => {
+  const escapedTicks = '\\` <span style="background-color:#f00;">active</span> \\`';
+  const paragraphs = '`unfinished\n\n<span style="background-color:#f00;">active</span>\n\nfinished`';
+  const multiline = '`first\nsecond` <span>active</span> `unfinished';
+  for (const markdown of [escapedTicks, paragraphs, multiline]) {
+    const rendered = withCodeBlockCards(markdown, 'javascript');
+    assert.equal(rendered.includes('<span'), false);
+    assert.equal(rendered.includes('&lt;span'), true);
+  }
+});
+
+test('closes an unclosed display fence before ending its code card', () => {
+  const markdown = 'Before.\n\n````js\nconst x = 1;';
+  const rendered = withCodeBlockCards(markdown, 'javascript');
+  assert.equal(rendered.includes('````js\nconst x = 1;\n````\n\n</td>'), true);
+  assert.equal(readCodeBlocks(markdown)[0]?.code, 'const x = 1;');
+  assert.equal(readCodeBlocks(rendered)[0]?.code, 'const x = 1;\n');
+});
+
+test('retains CRLF inside code cards and escapes HTML even when no code is present', () => {
+  const markdown = 'Before.\r\n\r\n~~~js\r\nconst value = 1;\r\n~~~\r\n\r\nAfter.';
+  assert.deepEqual(readCodeBlocks(withCodeBlockCards(markdown, 'javascript')), readCodeBlocks(markdown));
+  assert.equal(withCodeBlockCards('Before <b>bold</b> &amp; after.', 'javascript'), 'Before &lt;b>bold&lt;/b> &amp; after.');
 });

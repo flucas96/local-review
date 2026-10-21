@@ -2,7 +2,7 @@
   "name": "local-review",
   "displayName": "Local Review",
   "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "icon": "resources/icon.png",
   "galleryBanner": { "color": "#101B29", "theme": "dark" },
   "publisher": "local-review-dev",
@@ -103,7 +103,7 @@
       "properties": {
         "localReview.claudePath": { "type": "string", "default": "claude", "scope": "machine", "description": "Pfad zur Claude-Code-Anwendung." },
         "localReview.nodePath": { "type": "string", "default": "node", "scope": "machine", "description": "Pfad zu Node.js 22 oder neuer für die lokale Verbindung." },
-        "localReview.transport": { "type": "string", "enum": ["hooks", "channels"], "default": "hooks", "description": "Hooks wecken Claude automatisch über asyncRewake. Channels nutzen die neuere experimentelle Push-Schnittstelle." }
+        "localReview.transport": { "type": "string", "enum": ["hooks", "channels"], "default": "hooks", "description": "Automatische Zustellung im Hintergrund (Standard: hooks). channels ist eine experimentelle Alternative mit zusätzlichen Voraussetzungen." }
       }
     }
   }

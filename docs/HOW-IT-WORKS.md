@@ -1,50 +1,69 @@
-# Wie Local Review dein Feedback zu Claude bringt
+# Code reviewen. Gemeinsam mit deinem Agenten.
 
-![Vom Inline-Kommentar über die lokale Zustellung zur Antwort im selben Thread](media/local-review-flow.svg)
+![Änderungen ansehen, direkt am Code kommentieren, gemeinsam klären und prüfen](media/local-review-flow.svg)
 
-**Claude muss nicht regelmäßig nach neuen Kommentaren fragen.** Im Standardbetrieb wartet ein kleiner lokaler Helfer im Hintergrund. Wenn du einen Kommentar sendest, erhält Claude dessen Inhalt automatisch über einen Hook. Die Antwort kommt über MCP in denselben VS-Code-Thread zurück.
+**Änderungen ansehen, Fragen klären und den Code gemeinsam verbessern — direkt in VS Code.** Dein Agent bekommt gesendetes Feedback automatisch und antwortet im selben Kommentarverlauf.
 
-## Der Weg eines Kommentars
+Die Bilder sind nachgestellte Beispiele der Bedienung, keine Aufnahme einer geprüften Live-Sitzung.
 
-Du schreibst an einer Codezeile oder Auswahl einen nativen Inline-Kommentar. `/a` bittet um eine Erklärung, `/i` um eine Änderung und `/r` um eine Zusammenfassung der Unterhaltung. Die Erweiterung wertet den Präfix beim Absenden aus. Ein ungesendeter Entwurf ist kein Auftrag an Claude.
+## Einmal verbinden
 
-Local Review speichert den Auftrag zunächst mit einer unveränderlichen Ereignis-ID, der Datei, dem ausgewählten Code, den Zeilen und dem umgebenden Kontext in VS Codes lokalem Workspace-Speicher. Erst nach erfolgreichem Speichern benachrichtigt es die verbundenen Komponenten. Der Codekontext bleibt erhalten, auch wenn sich die Datei später ändert. [Ereignisse und Speicherung](../src/store.ts) · [Codekontext im Auftrag](../src/eventPrompt.ts)
+Öffne dein Projekt in VS Code und wähle **Local Review: Mit Claude verbinden**. Starte eine neue Claude-Code-Unterhaltung oder setze die letzte fort. Die verbundene Unterhaltung läuft im integrierten Terminal. Eine unabhängig gestartete Claude-Sitzung wird nicht automatisch verbunden. [Installation und Verbindung](INSTALL.md)
 
-Der lokale Helfer hält eine Anfrage an die lokale Review-Verbindung offen. Sobald ein neuer Auftrag vorliegt, beendet die Erweiterung diese Anfrage mit den Daten. Der Helfer gibt das Feedback an den `asyncRewake`-Hook von Claude Code zurück. Claude erhält es an einem sicheren Verarbeitungspunkt; ein bereits laufendes Tool wird dadurch nicht abgebrochen. [Wartender Hook-Helfer](../src/hookWaiter.ts) · [Lokale Verbindung](../src/bridge.ts)
+## Direkt im Code kommentieren
 
-Claude bestätigt den Auftrag mit `acknowledge_review`, meldet den Arbeitsbeginn mit `set_review_working` und sendet seine Antwort mit `reply_to_review`. Diese MCP-Aufrufe aktualisieren das ursprüngliche Ereignis und dessen Thread. Eine hergestellte Verbindung allein bedeutet noch keine bestätigte Zustellung. **Nur du kannst den Thread als erledigt markieren.** [MCP-Werkzeuge](../src/channel.ts) · [Status und Antworten](../src/store.ts) · [Native VS-Code-Unterhaltung](../src/reviewController.ts)
+Markiere den Code oder klicke auf das **+** an der Zeile. Schreibe zum Beispiel `/i Nutze exponentielles Backoff.` und wähle **Senden**. Claude bekommt deinen Kommentar zusammen mit Datei, Zeilen und Codekontext. Ein ungesendeter Entwurf bleibt ein Entwurf.
 
-## Ist das Push oder Polling?
-
-Für dich ist es automatische Zustellung beim Senden. Technisch nutzt der Standardweg **Long Polling durch einen lokalen Hilfsprozess**; es ist kein wiederholtes Nachfragen des Sprachmodells.
-
-| Beteiligter | Was er tut |
+| Präfix | Was du möchtest |
 | --- | --- |
-| VS-Code-Erweiterung | Speichert den gesendeten Auftrag und beantwortet eine wartende Anfrage sofort, wenn Arbeit vorhanden ist. |
-| Lokaler Hook-Helfer | Fragt beim Start ausstehende Aufträge ab und wartet anschließend über `GET /events?after=0`. Ohne Arbeit bleibt die Anfrage bis zu 20 Sekunden offen; danach stellt er sie erneut. Neue Arbeit beendet die Wartezeit sofort. |
-| Claude Code | Erhält das Feedback über den Hintergrund-Hook. Das Modell muss dafür keinen wiederkehrenden Prüfauftrag ausführen. |
-| Lokaler MCP-Helfer | Stellt Werkzeuge für Bestätigung, Fortschritt und Antwort bereit. Im Standardmodus prüft er zusätzlich alle 15 Sekunden die lokale Verbindung; diese Prüfung ist kein Modellaufruf. |
+| `/a` | Eine Frage stellen oder den Code besprechen. |
+| `/i` | Eine konkrete Änderung umsetzen lassen. |
+| `/r` | Die Unterhaltung und ihre offenen Entscheidungen zusammenfassen. |
 
-Die 20 Sekunden sind eine Zeitgrenze für eine leere Warteanfrage, **kein festes Zustellintervall**. Die Erweiterung schließt offene Anfragen bei neuen gespeicherten Ereignissen unmittelbar. Wann Claude mit dem Feedback arbeitet, hängt zusätzlich von seiner laufenden Verarbeitung und dem nächsten sicheren Punkt ab. [Long Polling und Ereignisbenachrichtigung](../src/bridge.ts) · [Hook-Schleife und Wiederverbindung](../src/hookWaiter.ts) · [MCP-Verbindungsprüfung](../src/channel.ts)
+## Antwort prüfen
 
-Die Verbindung läuft authentifiziert über `127.0.0.1` auf deinem Rechner. Das ist die lokale Übergabe zwischen Erweiterung und Claude-Code-Prozess. Claude verwendet für die eigentliche Modellverarbeitung weiterhin seinen konfigurierten Anbieter. [Verbindungsprüfung](../src/connection.ts) · [Lokaler Server](../src/bridge.ts)
+Der Status zeigt, ob dein Auftrag wartet, empfangen wurde, bearbeitet wird oder zur Prüfung bereitsteht. Claudes Antwort erscheint im ursprünglichen Kommentarverlauf. Mehrzeiliger Code gehört in einen eigenen farbigen Codeblock. Das kleine **Editor-Symbol** öffnet den Code im richtigen Editor.
 
-## Was die Verbindung startet
+Du kannst weiterfragen, eine weitere Änderung anfordern oder den Thread erledigen. **Eine Antwort von Claude erledigt den Thread nicht automatisch.**
 
-**Local Review: Mit Claude verbinden** startet oder setzt eine Claude-Code-Unterhaltung im integrierten VS-Code-Terminal fort und übergibt dafür erzeugte MCP- und Hook-Konfiguration. Eine bereits unabhängig gestartete Claude-Sitzung wird nicht automatisch verbunden. Die erzeugten Integrationsdateien liegen im Workspace-Speicher; die Erweiterung schreibt dafür keine Projektdateien wie `.claude/settings.json` oder `.mcp.json` um. [Start und Konfiguration](../src/setup.ts) · [Installation](INSTALL.md)
+## Fragt Claude ständig nach Kommentaren?
 
-Die Hook-Konfiguration aktiviert den wartenden Helfer bei `SessionStart`, `UserPromptSubmit`, `PostToolUse` und `Stop`. Eine Sperre verhindert mehrere gleichzeitig aktive Wartehelfer für denselben Workspace. Ein Helfer kann bis zu 24 Stunden laufen. Falls er abläuft, verbindet ein Neustart oder eine neue Claude-Eingabe den Warteweg wieder. Gesendete Ereignisse bleiben lokal gespeichert. Die Zustellung kann nach Unterbrechungen wiederholt werden; Ereignis-IDs helfen bei der Zuordnung, ersetzen aber keine Garantie für exakt einmalige Codeänderungen. [Hook-Konfiguration](../src/setup.ts) · [Sperre und Wiederanlauf](../src/hookWaiter.ts) · [Gespeicherte Ereignisse](../src/store.ts)
+**Das Sprachmodell tut das nicht.** Ein kleiner Helfer auf deinem Rechner wartet im Hintergrund auf gesendetes Feedback. Sobald ein Kommentar vorliegt, gibt er dessen Inhalt an Claude weiter. Dafür sind keine laufenden Modellanfragen nötig. Falls gerade ein Werkzeug läuft, darf es zunächst fertig werden.
 
-Der alternative **Channels-Modus** verwendet Claude-Channel-Benachrichtigungen über MCP. Er ist ein ausdrücklich wählbarer experimenteller Weg und nicht die Standardverbindung der Grafik. Standardmäßig startet die Erweiterung den MCP-Helfer mit `--no-push` und verwendet den Hintergrund-Hook für neue Aufträge. [Transportwahl](../src/setup.ts) · [Channel-Benachrichtigungen](../src/channel.ts)
+## Auf Wunsch in den bestehenden GitHub-PR übernehmen
 
-## Wie die Übergabe an einen GitHub-PR funktioniert
+Wähle **An GitHub-PR übergeben**, um verfügbare Zusammenfassungen und offene Fragen auszuwählen. Prüfe und bearbeite den Entwurf. Erst **Veröffentlichen** schreibt den sichtbaren Text als gemeinsamen Kommentar in den PR. Spätere Übergaben aktualisieren diesen Kommentar.
 
-**An GitHub-PR übergeben** ist eine eigene Aktion. Sie findet den offenen PR des aktuellen Branches und bereitet einen Entwurf aus ausgewählten verfügbaren Zusammenfassungen und offenen Fragen vor. Du kannst den Text bearbeiten und als Markdown prüfen. Erst die ausdrückliche Veröffentlichungsaktion schreibt diesen Entwurf als gemeinsamen Kommentar in den PR. Spätere Übergaben aktualisieren den verwalteten Abschnitt dieses Kommentars. [PR-Übergabe](PR-HANDOFF.md) · [Entwurf erstellen](../src/prExport.ts) · [Vorschau und Veröffentlichung](../src/prExportController.ts)
+`/r` fasst nur die lokale Unterhaltung zusammen. Die PR-Übergabe ist eine separate Aktion. [PR-Übergabe im Detail](PR-HANDOFF.md)
 
-`/r` veröffentlicht nichts auf GitHub. Die PR-Übergabe ist eine geprüfte Momentaufnahme und verändert weder die lokale Zustellbestätigung noch den Erledigt-Status deiner Threads.
+<details>
+<summary>Technische Details und Quellen</summary>
 
-## Zur Grafik
+Der Standardweg kombiniert Claude-Code-Hooks mit MCP-Werkzeugen. Das Modell führt keine wiederkehrende Abfrage aus; ein lokaler Hilfsprozess verwendet **Long Polling**.
 
-Die [SVG-Grafik](media/local-review-flow.svg) ist eigenständig und enthält keine externen Schriften oder Bilder. Eine daraus gerenderte [PNG-Version](media/local-review-flow.png) steht im README und im Installationspaket, weil VS Codes Paketprüfung SVG-Bilder im README ablehnt. Farben, großzügige Abstände und feine Linien orientieren sich an der gewünschten lokalen Präsentationsgestaltung; Marken, Logos und deren fachliche Inhalte wurden nicht übernommen. Die Schrift ist Arial beziehungsweise Helvetica mit einer normalen Sans-Serif-Ausweichschrift.
+Local Review speichert jeden Auftrag zuerst mit unveränderlicher Ereignis-ID, Datei, Zeilen und Codekontext im lokalen Workspace-Speicher von VS Code. Erst nach erfolgreichem Speichern werden wartende Komponenten benachrichtigt. [Speicherung](../src/store.ts) · [Übergebener Kontext](../src/eventPrompt.ts)
 
-Stand: Architektur der Version 0.4, geprüft gegen die oben verlinkten Projektdateien. Die Darstellung erklärt den implementierten Ablauf; sie ist kein Nachweis einer bereits vollständig geprüften Live-Sitzung. Den aktuellen Prüfstand dokumentiert [REVIEW.md](REVIEW.md).
+Der Hook-Helfer liest beim Start ausstehende Aufträge und hält anschließend eine lokale Anfrage über `GET /events?after=0` offen. Ein neues gespeichertes Ereignis beantwortet diese Anfrage sofort. Ohne Arbeit läuft eine leere Anfrage nach spätestens 20 Sekunden aus und wird erneut gestellt. **Die 20 Sekunden sind kein Zustellintervall.** Der Helfer liefert den Auftrag über einen `asyncRewake`-Hook an Claude Code. Claude erhält ihn an einem sicheren Verarbeitungspunkt; laufende Werkzeugaufrufe werden nicht abgebrochen. [Hook-Helfer](../src/hookWaiter.ts) · [Long Polling](../src/bridge.ts)
+
+Claude bestätigt mit `acknowledge_review`, meldet den Arbeitsbeginn mit `set_review_working` und antwortet mit `reply_to_review`. „Verbunden“ allein bestätigt keinen einzelnen Auftrag. Der MCP-Helfer prüft zusätzlich alle 15 Sekunden die lokale Verbindung. Auch diese Prüfung ist kein Modellaufruf. [MCP-Werkzeuge und Verbindungsprüfung](../src/channel.ts)
+
+Die Hook-Konfiguration aktiviert den Wartehelfer bei `SessionStart`, `UserPromptSubmit`, `PostToolUse` und `Stop`. Eine Sperre begrenzt ihn auf einen aktiven Helfer pro Workspace. Nach bis zu 24 Stunden endet ein Helfer; erneut verbinden oder Claude eine Eingabe senden aktiviert den Warteweg wieder. Bereits gesendete Aufträge bleiben gespeichert. Nach Unterbrechungen kann eine Zustellung wiederholt werden. Ereignis-IDs unterstützen die Zuordnung, garantieren aber keine exakt einmaligen Codeänderungen. [Start und Konfiguration](../src/setup.ts) · [Wiederanlauf und Sperre](../src/hookWaiter.ts)
+
+Die lokale Übergabe verwendet eine authentifizierte Verbindung auf `127.0.0.1`. Claude nutzt für die eigentliche Modellverarbeitung weiterhin seinen konfigurierten Anbieter. Erzeugte Integrationsdateien liegen außerhalb des Projekt-Repositories im Workspace-Speicher. Dafür werden keine Projektdateien wie `.claude/settings.json` oder `.mcp.json` umgeschrieben. [Verbindungsprüfung](../src/connection.ts) · [Lokaler Server](../src/bridge.ts) · [Integrationsdateien](../src/setup.ts)
+
+**Warum Hooks der Standard sind:** Sie passen zum aktuellen Terminal- und Gateway-Ablauf. Der alternative Channels-Modus leitet Benachrichtigungen über MCP an Claude weiter und lässt sich ausdrücklich auswählen. Er ist derzeit eine Research Preview mit besonderen Anforderungen an Anmeldung und Organisationsfreigabe. Laut Claude-Dokumentation werden Bedrock, Vertex AI und Microsoft Foundry dafür nicht unterstützt. Die Kompatibilität mit einem beliebigen Gateway ist damit nicht zugesichert. Channels bleibt eine optionale Alternative. [Offizielle Claude-Code-Dokumentation zu Channels](https://code.claude.com/docs/en/channels) · [Transportwahl](../src/setup.ts) · [Channel-Benachrichtigungen](../src/channel.ts)
+
+Die PR-Aktion erzeugt eine geprüfte Momentaufnahme. Sie bestätigt keine lokale Zustellung und erledigt keine lokalen Threads. [Entwurf erzeugen](../src/prExport.ts) · [Vorschau und Veröffentlichung](../src/prExportController.ts)
+
+</details>
+
+<details>
+<summary>Zur Grafik und zum Prüfstand</summary>
+
+Die [SVG-Grafik](media/local-review-flow.svg) zeigt den gemeinsamen Review-Zyklus mit nachgestellten Kommentaren und echten JavaScript-Ausschnitten. Neutrale helle Flächen, klare Typografie und dezente Akzente halten den Fokus auf dem Code und den Entscheidungen im Review. Die Grafik enthält keine externen Abhängigkeiten.
+
+Die daraus gerenderte [PNG-Version](media/local-review-flow.png) wird im README und Installationspaket verwendet, weil VS Codes Paketprüfung SVG-Bilder im README ablehnt.
+
+Stand: Version 0.4.1. Die Darstellung erklärt die implementierte Bedienung und ist kein Nachweis einer bereits vollständig geprüften Live-Sitzung. Den aktuellen Prüfstand dokumentiert [REVIEW.md](REVIEW.md).
+
+</details>

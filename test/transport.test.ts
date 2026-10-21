@@ -154,6 +154,9 @@ test('delivers queued feedback through hook exit 2 without acknowledging it befo
   assert.ok(result.stderr.includes(feedback));
   assert.ok(result.stderr.includes('src/example.ts'));
   assert.ok(result.stderr.includes('return cachedValue;'));
+  assert.match(result.stderr, /Fence all code, including imports and one-line functions, with a language tag/u);
+  assert.match(result.stderr, /Preserve indentation and real newlines/u);
+  assert.doesNotMatch(result.stderr, /functions that happen to fit on one line/u);
   assert.equal(store.events[0]?.acknowledged, false);
   assert.equal(store.threads[0]?.status, 'queued');
 

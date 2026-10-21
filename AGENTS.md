@@ -8,6 +8,7 @@ Analyze the project structure before making changes. Keep the native VS Code rev
 - Reuse existing helpers and keep persisted review data independent of the transport.
 - Add doc comments for exported behavior. Do not number implementation steps in comments.
 - Use clear system sans-serif fonts for extension UI and monospace fonts for code. Never use Comic Sans or handwritten novelty fonts.
+- Keep UI copy short and actions self-explanatory. Repository illustrations use a neutral, clean style focused on reviewing code and collaborating with an agent, with concrete code and review examples.
 - Treat transport data as unknown until validated.
 - Ask before running lint, type checks, or tests in approval-gated sessions. Builds and packaging are separate operations.
 
@@ -15,6 +16,8 @@ Analyze the project structure before making changes. Keep the native VS Code rev
 
 - Submitted comments are delivered automatically. Unsent keystrokes are not agent instructions.
 - Native inline input is the default, with one send action and `/a`, `/i`, `/r` interpreted when sending. The optional compact side composer previews modes while typing.
+- Explain automatic feedback delivery in plain language. Keep transport names in optional technical details; the hook-based default supports the terminal/gateway workflow while Channels remains an experimental opt-in.
+- Voice input uses the user's existing macOS Dictation. Do not add an audio recorder or transcription service unless requested separately.
 - Keep inline conversations anchored to their code. In the side composer, empty drafts may follow new explicit selections; written drafts and replies must not silently change targets.
 - `ask` and `summarize` request discussion without edits; `implement` requests scoped code changes.
 - `/r` summarizes a local conversation. Publishing to a GitHub PR is a separate preview-and-publish action.
@@ -25,6 +28,7 @@ Analyze the project structure before making changes. Keep the native VS Code rev
 - Do not silently attach uncertain comments to another line of code.
 - Code actions open current project code only after a confirmed content match. Proposed, missing or ambiguous snippets stay read-only; Markdown code blocks do not claim native editor semantics.
 - Generated editor links use opaque session handles and a single allowlisted command. Model-provided paths or command arguments cannot select navigation targets.
+- Native code cards use only approved theme-aware markup. Neutralize original message HTML before enabling generated HTML; navigation continues reading undecorated stored code.
 - Keep connection credentials outside the repository and preserve existing Claude configuration.
 
 ## Commands

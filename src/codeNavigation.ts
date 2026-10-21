@@ -136,6 +136,8 @@ export async function createCodeNavigation(store: ReviewStore): Promise<ReviewCo
   return {
     markdown(thread, message) {
       const body = new vscode.MarkdownString(references.render(thread, message, anchorLanguage(thread.anchor)));
+      body.supportThemeIcons = true;
+      body.supportHtml = true;
       body.isTrusted = { enabledCommands: [openCodeCommand] };
       return body;
     },

@@ -223,6 +223,8 @@ export class Range {
 /** Carry rendered Markdown and its command trust boundary through real navigation. */
 export class MarkdownString {
   isTrusted: boolean | { readonly enabledCommands: readonly string[] } | undefined;
+  supportThemeIcons: boolean | undefined;
+  supportHtml: boolean | undefined;
 
   constructor(readonly value = '') {}
 }

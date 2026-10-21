@@ -1,6 +1,6 @@
 # Review findings and verification
 
-Reviewed on 20 October 2026. **Fixed** means a source change has been made. **Verified** requires recorded execution evidence; a static review or a staged demo does not establish it.
+Reviewed on 20–21 October 2026. **Fixed** means a source change has been made. **Verified** requires recorded execution evidence; a static review or a staged demo does not establish it.
 
 ## Findings
 
@@ -77,6 +77,20 @@ On 21 October, the final VSIX was installed and the playground reloaded. The pre
 
 Extension-owned composer and PR panels use shared system sans-serif and monospace font stacks. Native comment typography remains controlled by VS Code. ASCII uppercase `/A`, `/I`, `/R` now follow the same shared parser as lowercase shortcuts, without changing feedback text.
 
+## 0.4.1 compact actions and guidance
+
+Native code cards add a theme-aware darker background, rounded corners and a compact file/language header around real Markdown fences. Approved layout cells provide inner spacing and expose a surrounding theme-colored frame; the native sanitizer strips arbitrary CSS borders and padding. Original HTML is neutralized before enabling generated safe markup. Inline-code/autolink and metadata boundaries have dedicated regressions; rare multiline inline-code angle brackets are conservatively entity-escaped. Stored code and navigation indexes remain unchanged. Assistive-technology behavior of the generated layout tables still needs a dedicated walkthrough.
+
+Native code actions use a small themed editor icon, with descriptive hover titles and numbers only when several code blocks need separate targets. The optional composer has the same compact action as an accessible SVG button. Selection notices and PR preview copy are shorter; explicit send and publish actions remain unchanged.
+
+The first dark-surface variant was rejected during visual review because it lacked a visible frame and inner spacing. The revised installed bundle was reloaded in the user's actual macOS VS Code. The existing retry reply showed a surrounding gray frame, rounded dark surface, inset file/language header and inset syntax-colored code. Scrolling the native message revealed its closing lines, lower frame and separate explanatory prose. The full import line remained visible in the current split layout. No new feedback was submitted; the restored source hash remained unchanged. Light/high-contrast themes, very narrow widths and assistive-technology behavior remain unverified.
+
+The full reply-format contract remains on the MCP reply tool. Wake-up events now include a 118-character reminder rather than the previous 562-character paragraph. No session flag suppresses it after reconnect, clear, fork or context compaction. Existing channel and hook integration tests verify both the short reminder delivered to Claude and the complete tool description. Strict TypeScript checking and all **138 automated tests pass** for 0.4.1.
+
+macOS Dictation is documented as the user's existing text-input method. No recorder, audio upload, transcription provider or system-setting change was added; audio capture was not activated during verification.
+
+The revised 1440×1260 flow graphic uses neutral light surfaces, charcoal and restrained teal. Four small code/review scenes show the human-agent cycle: inspect changes, comment in context, discuss or change, then check and finish. It was rendered from SVG to PNG and visually reviewed at full and README-like widths for readable code, arrows and clipping. Explanatory transport details are collapsed in the accompanying guide.
+
 ## Verification still required
 
 - Repeat the relevant checks after future changes. Current 0.3.0 strict TypeScript checking and all 73 tests pass; this does not replace native extension-host or authenticated integration validation.
@@ -104,4 +118,4 @@ Extension-owned composer and PR panels use shared system sans-serif and monospac
 
 Open work is tracked in GitHub: [validation and live integration #1](https://github.com/flucas96/local-review/issues/1), [Marketplace publisher and listing #2](https://github.com/flucas96/local-review/issues/2), [large-backlog pagination #3](https://github.com/flucas96/local-review/issues/3), [daily-workflow usability #4](https://github.com/flucas96/local-review/issues/4), and [live modes, PR handoff and demo #5](https://github.com/flucas96/local-review/issues/5).
 
-The `0.4.0` bundle and strict TypeScript checking pass, as do all 131 automated tests. Packaging includes the extension icon, view SVG and author avatars. Native code-action navigation, JavaScript hover, F12 and a colored snapshot preview were exercised in the macOS playground. A fresh authenticated reply with fenced code, the full Claude/PR walkthrough, publisher registration and Marketplace publication remain pending. Manual GitHub Actions workflows have not been run. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.
+The `0.4.1` bundle and strict TypeScript checking pass, as do all 138 automated tests. Packaging includes the extension icon, view SVG, author avatars and illustrated flow. Native code-action navigation, JavaScript hover, F12 and a colored snapshot preview were exercised in the macOS playground. A fresh authenticated reply with fenced code, the full Claude/PR walkthrough, publisher registration and Marketplace publication remain pending. Manual GitHub Actions workflows have not been run. Record future verification with the commit, platform, command or scenario, result, and a link to the workflow run or issue.
