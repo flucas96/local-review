@@ -6,6 +6,7 @@ import { createReviewStore } from './store.js';
 import { createReviewController } from './reviewController.js';
 import { prepareConnection, registerClaudeLauncher } from './setup.js';
 import { registerPrExport } from './prExportController.js';
+import { registerReviewAppearance } from './reviewAppearance.js';
 import type { ReviewBridge, ReviewStore } from './contracts.js';
 
 let activeStore: ReviewStore | undefined;
@@ -22,6 +23,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const store = await createReviewStore(join(storage.fsPath, 'review.json'), folder.uri.fsPath);
     activeStore = store;
     await createReviewController(store, context);
+    context.subscriptions.push(registerReviewAppearance(context));
     context.subscriptions.push(registerPrExport(context, store));
     const bridge = await createReviewBridge(store);
     activeBridge = bridge;

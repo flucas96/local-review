@@ -261,6 +261,35 @@ export const workspace = {
   textDocuments: [] as FakeTextDocument[],
   providers: new Map<string, FakeContentProvider>(),
   beforeOpen: undefined as (() => Promise<void>) | undefined,
+  configurationValues: new Map<string, unknown>(),
+  configurationWorkspaceValues: new Map<string, unknown>(),
+  configurationWrites: [] as { readonly key: string; readonly value: unknown; readonly target: number | undefined }[],
+  beforeConfigurationUpdate: undefined as (() => Promise<void>) | undefined,
+
+  /** Keep effective settings separate from project overrides so inheritance can be verified. */
+  getConfiguration(section: string): {
+    get<T>(key: string): T | undefined;
+    inspect<T>(key: string): { readonly workspaceValue: T | undefined };
+    update(key: string, value: unknown, target?: number): Promise<void>;
+  } {
+    return {
+      get: <T>(key: string): T | undefined => {
+        const full = `${section}.${key}`;
+        return (this.configurationWorkspaceValues.has(full)
+          ? this.configurationWorkspaceValues.get(full) : this.configurationValues.get(full)) as T | undefined;
+      },
+      inspect: <T>(key: string): { readonly workspaceValue: T | undefined } => ({
+        workspaceValue: this.configurationWorkspaceValues.get(`${section}.${key}`) as T | undefined,
+      }),
+      update: async (key: string, value: unknown, target?: number): Promise<void> => {
+        await this.beforeConfigurationUpdate?.();
+        const full = `${section}.${key}`;
+        this.configurationWrites.push({ key: full, value: structuredClone(value), target });
+        if (value === undefined) this.configurationWorkspaceValues.delete(full);
+        else this.configurationWorkspaceValues.set(full, structuredClone(value));
+      },
+    };
+  },
 
   /** Return unsaved documents first, or obtain exact text from the registered readonly provider. */
   async openTextDocument(uri: Uri): Promise<FakeTextDocument> {
@@ -309,7 +338,10 @@ export const languages = {
 };
 
 export const ViewColumn = { Beside: -2, One: 1 } as const;
+export const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3 } as const;
+export const ColorThemeKind = { Light: 1, Dark: 2, HighContrast: 3, HighContrastLight: 4 } as const;
 export const window = {
+  activeColorTheme: { kind: ColorThemeKind.Dark as number },
   panels: [] as FakePanel[],
   errors: [] as string[],
   information: [] as string[],
@@ -387,6 +419,7 @@ export function resetFakeWindow(): void {
   window.quickPicks.length = 0;
   window.quickPickIndex = 0;
   window.beforeShow = undefined;
+  window.activeColorTheme.kind = ColorThemeKind.Dark;
 }
 
 /** Clear only editor navigation state after its production providers are disposed. */
@@ -394,6 +427,10 @@ export function resetFakeEditor(): void {
   workspace.textDocuments.length = 0;
   workspace.providers.clear();
   workspace.beforeOpen = undefined;
+  workspace.configurationValues.clear();
+  workspace.configurationWorkspaceValues.clear();
+  workspace.configurationWrites.length = 0;
+  workspace.beforeConfigurationUpdate = undefined;
   commands.handlers.clear();
 }
 

@@ -2,7 +2,7 @@
   "name": "local-review",
   "displayName": "Local Review",
   "description": "Review local changes with Claude Code using native inline comments and automatic feedback delivery.",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "icon": "resources/icon.png",
   "galleryBanner": { "color": "#101B29", "theme": "dark" },
   "publisher": "local-review-dev",
@@ -65,6 +65,8 @@
       { "command": "localReview.resolve", "title": "Als erledigt markieren", "category": "Local Review", "icon": "$(check)" },
       { "command": "localReview.showResolved", "title": "Erledigte anzeigen", "category": "Local Review", "icon": "$(eye)" },
       { "command": "localReview.hideResolved", "title": "Erledigte ausblenden", "category": "Local Review", "icon": "$(eye-closed)" },
+      { "command": "localReview.enhanceContrast", "title": "Kommentarfenster hervorheben", "category": "Local Review", "icon": "$(color-mode)" },
+      { "command": "localReview.resetContrast", "title": "Standarddarstellung wiederherstellen", "category": "Local Review", "icon": "$(discard)" },
       { "command": "localReview.reopen", "title": "Wieder öffnen", "category": "Local Review", "icon": "$(debug-restart)" }
     ],
     "views": { "scm": [{ "id": "localReview.threads", "name": "Review", "icon": "resources/review.svg" }] },
@@ -81,7 +83,9 @@
         { "command": "localReview.openChanges", "when": "view == localReview.threads", "group": "navigation@2" },
         { "command": "localReview.exportToPr", "when": "view == localReview.threads", "group": "navigation@3" },
         { "command": "localReview.showResolved", "when": "view == localReview.threads && !localReview.showResolved", "group": "navigation@4" },
-        { "command": "localReview.hideResolved", "when": "view == localReview.threads && localReview.showResolved", "group": "navigation@4" }
+        { "command": "localReview.hideResolved", "when": "view == localReview.threads && localReview.showResolved", "group": "navigation@4" },
+        { "command": "localReview.enhanceContrast", "when": "view == localReview.threads", "group": "appearance@1" },
+        { "command": "localReview.resetContrast", "when": "view == localReview.threads", "group": "appearance@2" }
       ],
       "view/item/context": [
         { "command": "localReview.resolve", "when": "view == localReview.threads && viewItem == localReview.open", "group": "inline@1" },

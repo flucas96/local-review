@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.5
+
+- Add a project-scoped appearance action that gives native review conversations a distinct surface and persistent neutral frame, including when unfocused.
+- Preserve unrelated colors and theme settings; restore prior project values with a separate reset action, retaining later manual edits.
+- Scope the contrast colors to the current dark/light theme and retain native high-contrast colors.
+
 ## 0.4.4
 
 - Add end-to-end regression evidence for silent unacknowledged rearming and live bridge replacement; record a real headless Claude ask/implement/summarize roundtrip separately from pending interactive UI checks.

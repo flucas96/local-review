@@ -2,7 +2,7 @@
 
 Reviewed on 20–21 October 2026. **Fixed** means a source change has been made. **Verified** requires recorded execution evidence; a static review or a staged demo does not establish it.
 
-Latest evidence: [end-to-end verification report](QA-2026-10-21.md), including **169 passing automated tests**, an old/new hook reproduction and a real headless Claude roundtrip for ask, implement and summarize. The complete interactive native walkthrough remains open because reliable mouse/keyboard control was unavailable.
+Latest evidence: [end-to-end verification report](QA-2026-10-21.md), including **183 passing automated tests**, an old/new hook reproduction and a real headless Claude roundtrip for ask, implement and summarize. The complete interactive native walkthrough remains open; the Mac is currently locked.
 
 ## Findings
 
@@ -120,6 +120,14 @@ Resolved threads are hidden by default from native editor comments, the Comments
 Strict TypeScript checking and all **167 automated tests pass**, including real child-process hook delivery, unacknowledged Stop/tool rearming, new feedback, same-session resume/new-session recovery, subagent routing, corrupt receipts, superseded history and saved visibility/failure handling. Peer audits found no material blocker. Receipt persistence and Claude's exit-code reception are not atomic: interrupted delivery can still replay or require SessionStart recovery. An already running Claude session retains its old hook path/process and must reconnect after updating.
 
 Version 0.4.4 was installed and activated in the user's actual macOS VS Code. Two previously resolved conversations disappeared by default; the eye control restored all six discussions. On the existing answered “add a comment here” thread, ✓ removed its inline card, native Comments entry and Review entry and reduced the unresolved count from four to three. Showing completed discussions restored it with **Wieder öffnen**; reopening restored the prior answered/open state and count of four. The default hidden filter was restored afterward. No new feedback was submitted, and the playground source hash remained unchanged. The existing dark framed code card and header editor icon were visually intact. The current Claude process was retained; the updated live hook still requires reconnecting.
+
+## 0.4.5 unfocused conversation contrast
+
+An explicit **Kommentarfenster hervorheben** action applies four project color overrides for the current theme. Native conversations receive a distinct surface, darker reply field and persistent neutral border. VS Code shares these colors with other native comments and Peek results in the project. The extension does not change settings at activation; a separate reset restores the previous managed values and preserves later manual edits. High-contrast themes keep their native colors.
+
+Strict TypeScript checking and **183 tests pass**, including 14 command-level appearance regressions. A peer audit found and fixed a concurrent-settings race: changes made while the backup is being saved abort the operation before the settings write and restore the prior ownership metadata. Tests cover a manual color matching the planned palette and preservation of an earlier successful theme backup.
+
+The version was installed locally, but activation, apply/reset/reapply and focused/unfocused visual comparison remain pending because the Mac reported that it was locked. Installation and API-level tests are not visual verification. No project appearance setting was changed during this check.
 
 ## Verification still required
 
