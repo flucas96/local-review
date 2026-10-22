@@ -5,7 +5,8 @@ import { hashDocumentText } from '../src/anchors.js';
 import { createCodeNavigation, openCommentCodeCommand, type ReviewCodeNavigation } from '../src/codeNavigation.js';
 import { openCodeCommand } from '../src/codeReferences.js';
 import type { ReviewMessage, ReviewStore, ReviewThread } from '../src/contracts.js';
-import { commands, FakeTextDocument, resetFakeEditor, resetFakeWindow, settle, Uri, ViewColumn, window, workspace } from './fakes/vscode.js';
+import { commands, FakeTextDocument, resetFakeEditor, resetFakeWindow, settle, TabInputText, TabInputTextDiff,
+  TabInputWebview, Uri, ViewColumn, window, workspace } from './fakes/vscode.js';
 
 const navigators: ReviewCodeNavigation[] = [];
 
@@ -141,13 +142,70 @@ test('the reported documented function header renders and opens without completi
 
 test('opening composer code beside a lone chat preserves its only editor group', async () => {
   const { store, thread } = fixture('Discussion');
-  workspace.textDocuments.push(new FakeTextDocument(Uri.file('/workspace/src/example.ts'), 'before\nvalue();\nafter', 'typescript'));
+  const document = new FakeTextDocument(Uri.file('/workspace/src/example.ts'), 'before\nvalue();\nafter', 'typescript');
+  workspace.textDocuments.push(document);
+  const composer = { input: new TabInputWebview('localReview.composer') };
+  window.tabGroups.all.push({ viewColumn: 2, tabs: [{ input: new TabInputText(document.uri) }, composer], activeTab: composer });
   const navigator = await navigation(store);
 
   await navigator.openAnchor(thread.anchor);
 
   assert.equal(window.shownDocuments[0]?.options?.viewColumn, ViewColumn.Beside);
   assert.equal(window.shownDocuments[0]?.document.uri.scheme, 'file');
+});
+
+test('composer source navigation reuses the diff group when embedded editors have no view column', async () => {
+  const { store, thread } = fixture('Discussion');
+  const document = new FakeTextDocument(Uri.file('/workspace/src/example.ts'), 'unsaved insertion\nbefore\nvalue();\nafter', 'typescript');
+  const original = new FakeTextDocument(Uri.from({ scheme: 'local-review-base', path: '/src/example.ts' }), 'before\nvalue();\nafter', 'typescript');
+  workspace.textDocuments.push(document, original);
+  window.visibleTextEditors.push({ document: original }, { document });
+  const diff = { input: new TabInputTextDiff(original.uri, document.uri) };
+  const composer = { input: new TabInputWebview('localReview.composer') };
+  window.tabGroups.all.push({ viewColumn: 1, tabs: [diff], activeTab: diff }, { viewColumn: 2, tabs: [composer], activeTab: composer });
+  const navigator = await navigation(store);
+  const before = JSON.stringify(thread.anchor);
+
+  await navigator.openAnchor(thread.anchor);
+  await navigator.openAnchor(thread.anchor);
+
+  assert.deepEqual(window.shownDocuments.map(({ options }) => options?.viewColumn), [1, 1]);
+  assert.equal(window.shownDocuments[0]?.document, document);
+  assert.equal(window.shownDocuments[0]?.options?.selection?.start.line, 2);
+  assert.equal(JSON.stringify(thread.anchor), before);
+});
+
+test('composer prefers the already visible standalone source over the same file in a diff', async () => {
+  const { store, thread } = fixture('Discussion');
+  const document = new FakeTextDocument(Uri.file('/workspace/src/example.ts'), 'before\nvalue();\nafter', 'typescript');
+  workspace.textDocuments.push(document);
+  window.visibleTextEditors.push({ document }, { document, viewColumn: 3 });
+  const diff = { input: new TabInputTextDiff(Uri.from({ scheme: 'local-review-base', path: '/src/example.ts' }), document.uri) };
+  window.tabGroups.all.push({ viewColumn: 1, tabs: [diff], activeTab: diff });
+  const navigator = await navigation(store);
+
+  await navigator.openAnchor(thread.anchor);
+
+  assert.equal(window.shownDocuments[0]?.options?.viewColumn, 3);
+});
+
+test('stale composer code uses an existing source group for its exact readonly preview', async () => {
+  const { store, thread } = fixture('Discussion');
+  const document = new FakeTextDocument(Uri.file('/workspace/src/example.ts'), 'before\nchanged();\nafter', 'typescript');
+  workspace.textDocuments.push(document);
+  const other = { input: new TabInputText(Uri.file('/workspace/src/other.ts')) };
+  const composer = { input: new TabInputWebview('localReview.composer') };
+  window.tabGroups.all.push({ viewColumn: 1, tabs: [other], activeTab: other }, { viewColumn: 2, tabs: [composer], activeTab: composer });
+  const navigator = await navigation(store);
+
+  await navigator.openAnchor(thread.anchor);
+
+  const shown = window.shownDocuments[0];
+  assert.equal(shown?.options?.viewColumn, 1);
+  assert.equal(shown?.document.uri.scheme, 'local-review-snippet');
+  assert.equal(shown?.document.isReadonly, true);
+  assert.equal(shown?.document.getText(), thread.anchor.selectedText);
+  assert.equal(document.getText(), 'before\nchanged();\nafter');
 });
 
 test('missing or ambiguous code opens exact readonly snippets with the installed fence language', async () => {

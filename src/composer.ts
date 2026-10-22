@@ -365,7 +365,7 @@ ${codePreviewStyles}
 * { box-sizing: border-box; } body { margin: 0; padding: 16px 14px; color: var(--vscode-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.5 var(--review-font-ui); }
 main { max-width: 620px; margin: auto; } .code-header { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 3px 7px 3px 12px; border-bottom: 1px solid var(--review-line); } #path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; color: var(--vscode-descriptionForeground); font: 11px/1.5 var(--review-font-code); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-.code-context { margin-bottom: 12px; border: 1px solid var(--review-line); border-radius: 8px; background: var(--review-surface); overflow: hidden; } pre { white-space: pre; tab-size: 4; max-height: 158px; overflow: auto; margin: 0; padding: 11px 12px; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); font: 12px/1.6 var(--review-font-code); } #code { font: inherit; } #openCode { display: grid; place-items: center; flex-shrink: 0; width: 26px; height: 26px; padding: 4px; color: var(--vscode-icon-foreground, var(--vscode-foreground)); background: transparent; } #openCode:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground); } #openCode[hidden] { display: none; }
+.code-context { margin-bottom: 12px; border: 1px solid var(--review-line); border-radius: 8px; background: var(--review-surface); overflow: hidden; } pre { white-space: pre; tab-size: 4; max-height: 158px; overflow: auto; margin: 0; padding: 11px 12px; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); font: 12px/1.6 var(--review-font-code); } #code { font: inherit; color: inherit; background: transparent; padding: 0; border: 0; border-radius: 0; } #openCode { display: grid; place-items: center; flex-shrink: 0; width: 26px; height: 26px; padding: 4px; color: var(--vscode-icon-foreground, var(--vscode-foreground)); background: transparent; } #openCode:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground); } #openCode[hidden] { display: none; }
 .selection { border: 1px solid var(--review-accent); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; background: var(--review-tint); font-size: 11px; } .selection p { margin: 0 0 5px; } .selection button { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); } .selection[hidden] { display: none; }
 .compose-card { border: 1px solid var(--review-line); border-radius: 11px; background: var(--review-surface); box-shadow: 0 3px 12px #00000012; overflow: hidden; } .compose-card:focus-within { border-color: var(--vscode-focusBorder); } .compose-toolbar { padding: 7px 8px 0; } .modes { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; border-radius: 7px; background: var(--vscode-editor-background); } button { font: inherit; font-size: 11px; cursor: pointer; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; min-height: 26px; } button:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
 .mode { color: var(--vscode-descriptionForeground); background: transparent; min-height: 26px; } .mode:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } .mode[aria-pressed="true"] { color: var(--vscode-foreground); background: var(--review-tint); border-color: var(--review-accent); font-weight: 600; } kbd { color: var(--vscode-descriptionForeground); font: 10px var(--review-font-code); margin-left: 5px; }
@@ -377,7 +377,7 @@ textarea { display: block; width: calc(100% - 16px); min-height: 90px; max-heigh
 </style></head><body><main>
 <h1 id="title" class="sr-only">Review-Kommentar</h1>
 <aside id="selection" class="selection" hidden aria-live="polite"><p><strong>Neue Auswahl:</strong> <span id="selectionPath"></span></p><p class="muted">Aktueller Entwurf bleibt gespeichert.</p><button type="button" id="takeSelection">Neue Auswahl kommentieren</button></aside>
-<section class="code-context" aria-label="Ausgewählter Code"><header class="code-header"><p id="path"></p><button type="button" id="openCode" hidden title="Code im Editor öffnen" aria-label="Code im Editor öffnen"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5H5v14h14v-8M13 3h8v8m0-8L10 14"/></svg></button></header><pre tabindex="0" aria-label="Ausgewählter Code"><code id="code"></code></pre></section><section class="compose-card" aria-label="Feedback an Claude"><div class="compose-toolbar"><div class="modes" role="group" aria-label="Review-Modus">
+<section class="code-context" aria-label="Ausgewählter Code"><header class="code-header"><p id="path"></p><button type="button" id="openCode" hidden title="Code im Editor öffnen" aria-label="Code im Editor öffnen"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5H5v14h14v-8M13 3h8v8m0-8L10 14"/></svg></button></header><pre id="codeViewport" tabindex="0" aria-label="Ausgewählter Code"><code id="code"></code></pre></section><section class="compose-card" aria-label="Feedback an Claude"><div class="compose-toolbar"><div class="modes" role="group" aria-label="Review-Modus">
 <button type="button" class="mode" data-mode="ask" aria-pressed="true">Fragen <kbd>/a</kbd></button>
 <button type="button" class="mode" data-mode="implement" aria-pressed="false">Umsetzen <kbd>/i</kbd></button>
 <button type="button" class="mode" data-mode="summarize" aria-pressed="false">Zusammenfassen <kbd>/r</kbd></button></div></div>
@@ -490,6 +490,7 @@ document.getElementById('discard').addEventListener('click', () => { if (active 
 window.addEventListener('message', event => {
   const message = event.data;
   if (message.type === 'open') {
+    const targetChanged = !active || active.id !== message.id;
     active = message;
     selectedIntent = message.intent;
     input.value = message.text;
@@ -505,6 +506,11 @@ window.addEventListener('message', event => {
     const code = document.getElementById('code');
     code.textContent = message.code;
     if (typeof message.codeHtml === 'string') code.innerHTML = message.codeHtml;
+    if (targetChanged) {
+      const viewport = document.getElementById('codeViewport');
+      viewport.scrollTop = 0;
+      viewport.scrollLeft = 0;
+    }
     saved.textContent = 'Entwurf bleibt lokal';
     error.textContent = '';
     paint();

@@ -293,7 +293,7 @@ export class FakeTextDocument {
 
 interface FakeTextEditor {
   readonly document: FakeTextDocument;
-  readonly viewColumn: number;
+  readonly viewColumn?: number;
 }
 
 /** Native editor surface for controller tests with observable selection decoration. */
@@ -382,8 +382,14 @@ export const OverviewRulerLane = { Center: 2 } as const;
 export const DecorationRangeBehavior = { ClosedClosed: 1 } as const;
 export const TextEditorRevealType = { InCenterIfOutsideViewport: 2 } as const;
 export const TextEditorSelectionChangeKind = { Keyboard: 1, Mouse: 2, Command: 3 } as const;
+export class TabInputText {
+  constructor(readonly uri: Uri) {}
+}
 export class TabInputTextDiff {
   constructor(readonly original: Uri, readonly modified: Uri) {}
+}
+export class TabInputWebview {
+  constructor(readonly viewType: string) {}
 }
 
 /** Event sources deliver real document lifecycle events to controller subscriptions. */
@@ -546,7 +552,7 @@ export const window = {
     return terminal;
   },
   trees: [] as FakeTreeView[],
-  tabGroups: { all: [] as { readonly viewColumn: number; readonly tabs: { readonly input: unknown }[] }[] },
+  tabGroups: { all: [] as { readonly viewColumn: number; readonly tabs: { readonly input: unknown }[]; readonly activeTab?: { readonly input: unknown } }[] },
   onDidChangeVisibleTextEditors: editorEvents.visible.event,
   onDidChangeTextEditorSelection: editorEvents.selection.event,
   onDidChangeWindowState: editorEvents.focus.event,

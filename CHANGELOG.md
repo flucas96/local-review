@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.11
+
+- Remove VS Code's inherited inline-code background strips and padding from the composer preview, keeping one clean syntax-colored code card.
+- Reuse an existing source editor when opening code from the composer, including a source displayed in a diff. Repeated navigation no longer creates extra editor columns.
+- Reset preview scrolling when changing the selected code target, while preserving the reading position when reopening the same target.
+
 ## 0.4.10
 
 - Replace the bulky side-composer context stack with one compact file reference, editor icon and syntax-colored selected-code card. Remove duplicate surrounding context, branding and the pinned-reply badge from the display; captured context stays attached to feedback.

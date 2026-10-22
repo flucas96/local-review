@@ -52,11 +52,22 @@ export async function createCodeNavigation(store: ReviewStore): Promise<ReviewCo
 
   /** Keep the discussion visible beside the existing project editor. */
   function editorColumn(uri: vscode.Uri, fromComposer: boolean): vscode.ViewColumn {
-    const existing = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.toString() === uri.toString());
+    const target = uri.toString();
+    const existing = vscode.window.visibleTextEditors.find((editor) => editor.viewColumn !== undefined
+      && editor.document.uri.toString() === target);
     if (existing?.viewColumn !== undefined) return existing.viewColumn;
     if (fromComposer) {
-      return vscode.window.visibleTextEditors.find((editor) => editor.document.uri.scheme === 'file')?.viewColumn
-        ?? vscode.window.visibleTextEditors[0]?.viewColumn
+      const groups = vscode.window.tabGroups.all.filter((group) => !(group.activeTab?.input instanceof vscode.TabInputWebview));
+      const matching = groups.find((group) => group.tabs.some(({ input }) => input instanceof vscode.TabInputText
+        ? input.uri.toString() === target
+        : input instanceof vscode.TabInputTextDiff && (input.original.toString() === target || input.modified.toString() === target)));
+      const sourceGroup = groups.find((group) => group.activeTab?.input instanceof vscode.TabInputText
+        || group.activeTab?.input instanceof vscode.TabInputTextDiff)
+        ?? groups.find((group) => group.tabs.some(({ input }) => input instanceof vscode.TabInputText || input instanceof vscode.TabInputTextDiff));
+      return matching?.viewColumn
+        ?? vscode.window.visibleTextEditors.find((editor) => editor.viewColumn !== undefined && editor.document.uri.scheme === 'file')?.viewColumn
+        ?? sourceGroup?.viewColumn
+        ?? vscode.window.visibleTextEditors.find((editor) => editor.viewColumn !== undefined)?.viewColumn
         ?? vscode.ViewColumn.Beside;
     }
     return vscode.ViewColumn.Beside;

@@ -93,6 +93,30 @@ test('selection changes refresh escaped syntax highlighting without publishing s
   assert.match(String(changed['codeHtml']), /second/u);
 });
 
+test('new code targets reset preview scrolling while the same target preserves its reading position', async () => {
+  const initial = request('first');
+  const { composer, browser } = await openComposer(initial);
+  const viewport = Object.assign(browser.element('codeViewport'), { scrollTop: 96, scrollLeft: 120 });
+
+  await composer.open(initial);
+  await settle();
+  assert.equal(viewport.scrollTop, 96);
+  assert.equal(viewport.scrollLeft, 120);
+
+  browser.type('Keep this question attached to the first selection.');
+  await composer.followSelection(request('second'));
+  await settle();
+  assert.equal(viewport.scrollTop, 96);
+  assert.equal(viewport.scrollLeft, 120);
+  assert.equal(browser.element('path').textContent, 'first.ts:4');
+
+  browser.element('takeSelection').fire('click');
+  await settle();
+  assert.equal(browser.element('path').textContent, 'second.ts:4');
+  assert.equal(viewport.scrollTop, 0);
+  assert.equal(viewport.scrollLeft, 0);
+});
+
 test('an empty composer follows selected code without revealing the panel or focusing input', async () => {
   const { composer, panel, browser } = await openComposer();
   const targets: (ComposerRequest | undefined)[] = [];
